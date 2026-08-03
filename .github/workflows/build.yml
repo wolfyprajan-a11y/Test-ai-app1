@@ -25,8 +25,12 @@ jobs:
           pip install --upgrade pip
           pip install "cython<3.0.0" buildozer virtualenv
 
-      - name: Build APK
+      - name: Configure and Build APK
         run: |
+          # Force buildozer to use compatible NDK and API versions
+          sed -i 's/android.api = .*/android.api = 33/' buildozer.spec || true
+          sed -i 's/#android.ndk = .*/android.ndk = 25b/' buildozer.spec || true
+          
           yes | buildozer android debug
 
       - name: Upload APK
