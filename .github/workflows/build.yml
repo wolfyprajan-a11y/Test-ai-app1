@@ -25,14 +25,18 @@ jobs:
           pip install --upgrade pip
           pip install "cython<3.0.0" buildozer virtualenv
 
-      - name: Configure and Build APK
+      - name: Build APK
         run: |
-          # 1. Apply the NDK fix to prevent the standard crash
-          sed -i 's/android.api = .*/android.api = 33/' buildozer.spec || true
-          sed -i 's/#android.ndk = .*/android.ndk = 25b/' buildozer.spec || true
+          # 1. Create the buildozer.spec settings file FIRST
+          buildozer init
           
-          # 2. Run the build. If it fails, print ONLY the last 100 lines!
-          yes | buildozer android debug > build_log.txt 2>&1 || (echo "🚨 BUILD FAILED! Here is the actual error:" && tail -n 100 build_log.txt && exit 1)
+          # 2. Edit the file to use the correct NDK and API versions
+          sed -i 's/.*android.api =.*/android.api = 33/' buildozer.spec
+          sed -i 's/.*android.ndk =.*/android.ndk = 25b/' buildozer.spec
+          sed -i 's/.*android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+          
+          # 3. Build the app!
+          yes | buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
