@@ -27,11 +27,12 @@ jobs:
 
       - name: Configure and Build APK
         run: |
-          # Force buildozer to use compatible NDK and API versions
+          # 1. Apply the NDK fix to prevent the standard crash
           sed -i 's/android.api = .*/android.api = 33/' buildozer.spec || true
           sed -i 's/#android.ndk = .*/android.ndk = 25b/' buildozer.spec || true
           
-          yes | buildozer android debug
+          # 2. Run the build. If it fails, print ONLY the last 100 lines!
+          yes | buildozer android debug > build_log.txt 2>&1 || (echo "🚨 BUILD FAILED! Here is the actual error:" && tail -n 100 build_log.txt && exit 1)
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
