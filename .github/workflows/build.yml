@@ -22,24 +22,26 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          pip install --upgrade pip
-          pip install "cython<3.0.0" buildozer virtualenv
+          
+          # Lock pip to an older version to prevent the bug from happening!
+          python -m pip install "pip<24.1" "setuptools<70.0.0"
+          pip install "cython<3.0.0" "virtualenv<20.26.0" buildozer
 
       - name: Build APK
         run: |
           # 1. Create spec file if missing
           buildozer init || true
           
-          # 2. Configure compatible versions AND fix the Pip bug!
-          sed -i 's/.*android.api =.*/android.api = 33/' buildozer.spec
-          sed -i 's/.*android.ndk =.*/android.ndk = 25b/' buildozer.spec
-          sed -i 's/.*android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
-          sed -i 's/.*p4a.branch =.*/p4a.branch = master/' buildozer.spec
+          # 2. Force our settings by pasting them directly to the bottom of the file!
+          echo "android.api = 33" >> buildozer.spec
+          echo "android.ndk = 25b" >> buildozer.spec
+          echo "android.accept_sdk_license = True" >> buildozer.spec
+          echo "p4a.branch = master" >> buildozer.spec
           
           # 3. Save build output to a log file
           yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
 
-          # 4. If it failed, print only the error lines clearly!
+          # 4. If it fails, print the clean error log
           if [ "$BUILD_FAILED" = "1" ]; then
             echo "================ ERROR LOG START ================"
             grep -i -E "error|exception|failed" build.log | tail -n 30
@@ -52,4 +54,3 @@ jobs:
         with:
           name: AI-Shell-App
           path: bin/*.apk
-          
