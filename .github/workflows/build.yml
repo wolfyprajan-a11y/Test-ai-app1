@@ -27,8 +27,8 @@ jobs:
 
       - name: Build APK
         run: |
-          # 1. Create the buildozer.spec settings file FIRST
-          buildozer init
+          # 1. Create the buildozer.spec settings file (ignore error if it already exists!)
+          buildozer init || true
           
           # 2. Edit the file to use the correct NDK and API versions
           sed -i 's/.*android.api =.*/android.api = 33/' buildozer.spec
