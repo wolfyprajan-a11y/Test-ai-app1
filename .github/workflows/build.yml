@@ -27,16 +27,24 @@ jobs:
 
       - name: Build APK
         run: |
-          # 1. Create the buildozer.spec settings file (ignore error if it already exists!)
+          # 1. Create spec file if missing
           buildozer init || true
           
-          # 2. Edit the file to use the correct NDK and API versions
+          # 2. Configure compatible versions
           sed -i 's/.*android.api =.*/android.api = 33/' buildozer.spec
           sed -i 's/.*android.ndk =.*/android.ndk = 25b/' buildozer.spec
           sed -i 's/.*android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
           
-          # 3. Build the app!
-          yes | buildozer android debug
+          # 3. Save build output to a log file
+          yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
+
+          # 4. If it failed, print only the error lines clearly!
+          if [ "$BUILD_FAILED" = "1" ]; then
+            echo "================ ERROR LOG START ================"
+            grep -i -E "error|exception|failed" build.log | tail -n 30
+            echo "================= ERROR LOG END ================="
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
