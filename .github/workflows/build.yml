@@ -30,10 +30,11 @@ jobs:
           # 1. Create spec file if missing
           buildozer init || true
           
-          # 2. Configure compatible versions
+          # 2. Configure compatible versions AND fix the Pip bug!
           sed -i 's/.*android.api =.*/android.api = 33/' buildozer.spec
           sed -i 's/.*android.ndk =.*/android.ndk = 25b/' buildozer.spec
           sed -i 's/.*android.accept_sdk_license =.*/android.accept_sdk_license = True/' buildozer.spec
+          sed -i 's/.*p4a.branch =.*/p4a.branch = master/' buildozer.spec
           
           # 3. Save build output to a log file
           yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
@@ -51,3 +52,4 @@ jobs:
         with:
           name: AI-Shell-App
           path: bin/*.apk
+          
