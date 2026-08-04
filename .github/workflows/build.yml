@@ -7,10 +7,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -22,32 +22,11 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-          
-          # Lock pip to an older version to prevent the bug from happening!
-          python -m pip install "pip<24.1" "setuptools<70.0.0"
-          pip install "cython<3.0.0" "virtualenv<20.26.0" buildozer
+          pip install --upgrade "pip<24.1" setuptools virtualenv
+          pip install "cython<3.0.0" buildozer
 
       - name: Build APK
-        run: |
-          # 1. Create spec file if missing
-          buildozer init || true
-          
-          # 2. Force our settings by pasting them directly to the bottom of the file!
-          echo "android.api = 33" >> buildozer.spec
-          echo "android.ndk = 25b" >> buildozer.spec
-          echo "android.accept_sdk_license = True" >> buildozer.spec
-          echo "p4a.branch = master" >> buildozer.spec
-          
-          # 3. Save build output to a log file
-          yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
-
-          # 4. If it fails, print the clean error log
-          if [ "$BUILD_FAILED" = "1" ]; then
-            echo "================ ERROR LOG START ================"
-            grep -i -E "error|exception|failed" build.log | tail -n 30
-            echo "================= ERROR LOG END ================="
-            exit 1
-          fi
+        run: yes | buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
