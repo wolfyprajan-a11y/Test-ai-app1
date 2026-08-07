@@ -18,15 +18,28 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install dependencies
+      - name: Install System Dependencies
         run: |
           sudo apt update
           sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+
+      - name: Install Python Dependencies
+        run: |
           pip install --upgrade "pip<24.1" setuptools virtualenv
           pip install "cython<3.0.0" buildozer
 
-      - name: Build APK
-        run: yes | buildozer android debug
+      - name: Build APK with Error Catcher
+        run: |
+          # Run buildozer and save all that messy output to a log file instead of the screen
+          yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
+          
+          # If it crashes, filter the log and print ONLY the errors clearly!
+          if [ "$BUILD_FAILED" = "1" ]; then
+            echo "================ ERROR LOG START ================"
+            grep -i -E "error|exception|failed|traceback" build.log | tail -n 50
+            echo "================= ERROR LOG END ================="
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
