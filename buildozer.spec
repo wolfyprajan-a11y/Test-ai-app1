@@ -13,7 +13,9 @@ android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.accept_sdk_license = True
 android.api = 33
-android.ndk = 25b
+
+# We are letting Buildozer automatically fetch the correct NDK version!
+p4a.branch = master
 
 [buildozer]
 log_level = 2
