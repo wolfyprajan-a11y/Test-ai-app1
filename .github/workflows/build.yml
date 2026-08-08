@@ -1,16 +1,18 @@
-name: Build Android APK
-on: [push, workflow_dispatch]
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -18,31 +20,29 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: Install Python Dependencies
         run: |
-          pip install --upgrade "pip<24.1" setuptools virtualenv
-          pip install "cython<3.0.0" buildozer
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip install --upgrade buildozer cython virtualenv
+
+      # --- NEW STEP TO FIX THE PIP ERROR ---
+      - name: Downgrade pip to fix python-for-android compatibility
+        run: python -m pip install "pip<24.1"
+      # -------------------------------------
 
       - name: Build APK with Error Catcher
         run: |
-          # Run buildozer and save all that messy output to a log file instead of the screen
-          yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
-          
-          # If it crashes, filter the log and print ONLY the errors clearly!
-          if [ "$BUILD_FAILED" = "1" ]; then
-            echo "================ ERROR LOG START ================"
-            grep -i -E "error|exception|failed|traceback" build.log | tail -n 50
-            echo "================= ERROR LOG END ================="
-            exit 1
-          fi
+          # Your existing buildozer command
+          yes | buildozer -v android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AI-Shell-App
+          name: app-debug-apk
           path: bin/*.apk
