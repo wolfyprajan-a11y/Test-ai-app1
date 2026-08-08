@@ -28,17 +28,14 @@ jobs:
       - name: Install Python Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses-dev libtinfo6 cmake libffi-dev libssl-dev
           pip install --upgrade buildozer cython virtualenv
 
-      # --- NEW STEP TO FIX THE PIP ERROR ---
       - name: Downgrade pip to fix python-for-android compatibility
         run: python -m pip install "pip<24.1"
-      # -------------------------------------
 
       - name: Build APK with Error Catcher
         run: |
-          # Your existing buildozer command
           yes | buildozer -v android debug
 
       - name: Upload APK
