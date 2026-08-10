@@ -25,29 +25,17 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
+          # Here is the fix: We explicitly lock down the stable 2024 compiler!
           pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          pip install "cython<3.0.0" buildozer
+          pip install "cython<3.0.0" buildozer "python-for-android==2024.1.21"
 
-      - name: Build APK (with secret environment patch & Error Catcher)
+      - name: Build APK (Stable 2024 Compiler)
         run: |
-          # 1. Trigger Buildozer so it generates its hidden environment (it will crash, which is expected)
-          yes | buildozer android debug || true
-          
-          # 2. Hunt down the secret hidden pip file and patch the bug!
-          VENV_PIP=$(find .buildozer -type f -name "pip" | grep "venv/bin/pip" | head -n 1)
-          if [ -n "$VENV_PIP" ]; then
-            echo "Found hidden pip at $VENV_PIP. Patching it now..."
-            $VENV_PIP install "pip<24.1" "setuptools<70.0.0"
-          fi
-          
-          # 3. Now that the bug is fixed, run the build for real!
           yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
           
-          # 4. The Smart Error Catcher
           if [ "$BUILD_FAILED" = "1" ]; then
             echo "================ ERROR LOG START ================"
-            # Grabs the last 250 lines but deletes the useless Buildozer environment dump (lines starting with #)
-            tail -n 250 build.log | grep -v "^#"
+            tail -n 50 build.log | grep -v "^#"
             echo "================= ERROR LOG END ================="
             exit 1
           fi
