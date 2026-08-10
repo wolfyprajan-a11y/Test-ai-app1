@@ -25,20 +25,30 @@ jobs:
 
       - name: Install Python Dependencies
         run: |
-          # Here is the fix: We explicitly lock down the stable 2024 compiler!
           pip install "pip<24.1" setuptools "virtualenv==20.21.0"
           pip install "cython<3.0.0" buildozer "python-for-android==2024.1.21"
 
-      - name: Build APK (Stable 2024 Compiler)
+      - name: Build APK
         run: |
-          yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
+          # Run buildozer and capture everything without the yes pipe (which caused the Broken pipe error!)
+          buildozer android debug > build.log 2>&1 || true
           
-          if [ "$BUILD_FAILED" = "1" ]; then
-            echo "================ ERROR LOG START ================"
-            tail -n 50 build.log | grep -v "^#"
-            echo "================= ERROR LOG END ================="
+          # Print the last 200 lines unfiltered just in case it's visible here
+          echo "================ RAW LOG END ================"
+          tail -n 200 build.log
+          
+          # Check if the APK was actually generated. If not, trigger the fail state!
+          if ! ls bin/*.apk 1> /dev/null 2>&1; then
+            echo "🚨 BUILD FAILED! Please download the build-log artifact to see why."
             exit 1
           fi
+
+      - name: Upload Build Log (Always runs, even if it fails!)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
