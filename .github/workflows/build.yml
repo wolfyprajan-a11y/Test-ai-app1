@@ -12,7 +12,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      # This is updated to v5 so the yellow warning goes away!
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
@@ -29,9 +28,9 @@ jobs:
           pip install "pip<24.1" setuptools "virtualenv==20.21.0"
           pip install "cython<3.0.0" buildozer
 
-      - name: Build APK (with secret environment patch!)
+      - name: Build APK (with secret environment patch & Error Catcher)
         run: |
-          # 1. Trigger Buildozer so it generates its hidden environment (it will crash, which is expected!)
+          # 1. Trigger Buildozer so it generates its hidden environment (it will crash, which is expected)
           yes | buildozer android debug || true
           
           # 2. Hunt down the secret hidden pip file and patch the bug!
@@ -44,10 +43,11 @@ jobs:
           # 3. Now that the bug is fixed, run the build for real!
           yes | buildozer android debug > build.log 2>&1 || BUILD_FAILED=1
           
-          # 4. Error printing (just in case)
+          # 4. The Smart Error Catcher
           if [ "$BUILD_FAILED" = "1" ]; then
             echo "================ ERROR LOG START ================"
-            grep -i -E "error|exception|failed|traceback" build.log | tail -n 50
+            # Grabs the last 250 lines but deletes the useless Buildozer environment dump (lines starting with #)
+            tail -n 250 build.log | grep -v "^#"
             echo "================= ERROR LOG END ================="
             exit 1
           fi
