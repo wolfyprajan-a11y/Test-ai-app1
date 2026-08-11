@@ -3,12 +3,15 @@ title = AIShell
 package.name = aishell
 package.domain = org.wolfyprajan
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
-version = 0.1
-requirements = python3,kivy
+source.include_exts = py,png,jpg,kv,atlas,json
+version = 0.2
+
+# Includes networking and SSL support for API rotation and Cloud Sync
+requirements = python3, kivy, requests, urllib3, certifi, openssl
+
 orientation = portrait
 fullscreen = 0
-android.permissions = INTERNET
+android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.accept_sdk_license = True
