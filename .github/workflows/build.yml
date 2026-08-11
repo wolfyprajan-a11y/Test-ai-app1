@@ -54,7 +54,7 @@ jobs:
             libssl-dev
 
       # -----------------------------
-      # 5. Python dependencies (With Pip Lock Fix)
+      # 5. Python dependencies
       # -----------------------------
       - name: Install Buildozer
         run: |
@@ -85,8 +85,7 @@ jobs:
 
           mkdir -p build_logs
 
-          # Run Buildozer.
-          # tee displays the log in GitHub AND saves it.
+          # Run Buildozer and save the log
           buildozer -v android debug 2>&1 | tee build_logs/build.log
 
           BUILD_EXIT_CODE=${PIPESTATUS[0]}
@@ -97,7 +96,7 @@ jobs:
           echo "=========================================="
           echo "$BUILD_EXIT_CODE"
 
-          # If Buildozer failed, stop the workflow.
+          # If Buildozer failed, stop the workflow and print the SMART log.
           if [ "$BUILD_EXIT_CODE" -ne 0 ]; then
             echo ""
             echo "=========================================="
@@ -105,8 +104,10 @@ jobs:
             echo "=========================================="
 
             echo ""
-            echo "========== LAST 150 LOG LINES =========="
-            tail -n 150 build_logs/build.log
+            echo "========== REAL ERROR LOG =========="
+            # This deletes all the useless environment variables first, 
+            # then prints the real crash traceback!
+            grep -v '^[[:space:]]*#' build_logs/build.log | tail -n 100
 
             exit "$BUILD_EXIT_CODE"
           fi
@@ -121,8 +122,8 @@ jobs:
             echo "=========================================="
 
             echo ""
-            echo "========== LAST 150 LOG LINES =========="
-            tail -n 150 build_logs/build.log
+            echo "========== REAL ERROR LOG =========="
+            grep -v '^[[:space:]]*#' build_logs/build.log | tail -n 100
 
             exit 1
           fi
