@@ -1,57 +1,159 @@
 name: Build Android APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
+      # -----------------------------
+      # 1. Checkout
+      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -----------------------------
+      # 2. Python
+      # -----------------------------
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
+      # -----------------------------
+      # 3. Java
+      # -----------------------------
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
+      # -----------------------------
+      # 4. Android / Build dependencies
+      # -----------------------------
       - name: Install System Dependencies
         run: |
-          sudo apt update
-          sudo apt install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            zip \
+            unzip \
+            autoconf \
+            automake \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev
 
-      - name: Install Python Dependencies
+      # -----------------------------
+      # 5. Python dependencies (With Pip Lock Fix)
+      # -----------------------------
+      - name: Install Buildozer
         run: |
-          pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          pip install "cython<3.0.0" buildozer "python-for-android==2024.1.21"
+          # Keep pip pinned below 24.1 to prevent the BuildDependencyInstallerError crash
+          python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
+          pip install "cython<3.0" buildozer
 
+      # -----------------------------
+      # 6. Check Buildozer
+      # -----------------------------
+      - name: Check Buildozer
+        run: |
+          buildozer --version
+          python --version
+          java -version
+
+      # -----------------------------
+      # 7. Build APK
+      # -----------------------------
       - name: Build APK
+        shell: bash
         run: |
-          # Run buildozer and capture everything without the yes pipe (which caused the Broken pipe error!)
-          buildozer android debug > build.log 2>&1 || true
-          
-          # Print the last 200 lines unfiltered just in case it's visible here
-          echo "================ RAW LOG END ================"
-          tail -n 200 build.log
-          
-          # Check if the APK was actually generated. If not, trigger the fail state!
-          if ! ls bin/*.apk 1> /dev/null 2>&1; then
-            echo "🚨 BUILD FAILED! Please download the build-log artifact to see why."
+          set -o pipefail
+
+          echo "=========================================="
+          echo "        STARTING ANDROID BUILD"
+          echo "=========================================="
+
+          mkdir -p build_logs
+
+          # Run Buildozer.
+          # tee displays the log in GitHub AND saves it.
+          buildozer -v android debug 2>&1 | tee build_logs/build.log
+
+          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+
+          echo ""
+          echo "=========================================="
+          echo "        BUILDOZER EXIT CODE"
+          echo "=========================================="
+          echo "$BUILD_EXIT_CODE"
+
+          # If Buildozer failed, stop the workflow.
+          if [ "$BUILD_EXIT_CODE" -ne 0 ]; then
+            echo ""
+            echo "=========================================="
+            echo "          BUILD FAILED"
+            echo "=========================================="
+
+            echo ""
+            echo "========== LAST 150 LOG LINES =========="
+            tail -n 150 build_logs/build.log
+
+            exit "$BUILD_EXIT_CODE"
+          fi
+
+          # Check whether an APK exists.
+          APK_COUNT=$(find bin -maxdepth 1 -type f -name "*.apk" 2>/dev/null | wc -l)
+
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo ""
+            echo "=========================================="
+            echo "      BUILD FAILED: NO APK FOUND"
+            echo "=========================================="
+
+            echo ""
+            echo "========== LAST 150 LOG LINES =========="
+            tail -n 150 build_logs/build.log
+
             exit 1
           fi
 
-      - name: Upload Build Log (Always runs, even if it fails!)
+          echo ""
+          echo "=========================================="
+          echo "          APK BUILD SUCCESSFUL"
+          echo "=========================================="
+
+          echo ""
+          echo "Generated APK:"
+          find bin -maxdepth 1 -type f -name "*.apk" -print
+
+      # -----------------------------
+      # 8. Upload complete log
+      # -----------------------------
+      - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
-          path: build.log
+          path: build_logs/build.log
+          if-no-files-found: warn
 
+      # -----------------------------
+      # 9. Upload APK only if it exists
+      # -----------------------------
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-App
           path: bin/*.apk
+          if-no-files-found: error
