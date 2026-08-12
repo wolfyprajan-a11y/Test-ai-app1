@@ -9,103 +9,62 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      # -----------------------------
-      # 1. Checkout
-      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # 2. Python
-      # -----------------------------
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # -----------------------------
-      # 3. Java
-      # -----------------------------
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "17"
 
-      # -----------------------------
-      # 4. Android / Build dependencies
-      # -----------------------------
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            autoconf \
-            automake \
-            libtool \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev
+            git zip unzip autoconf automake libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev
 
-      # -----------------------------
-      # 5. Python dependencies
-      # -----------------------------
-      - name: Install Buildozer
+      - name: Install Buildozer & Fix Pyjnius Bug
         run: |
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          pip install "cython<3.0" buildozer
+          
+          # We MUST keep the 2024 compiler locked to bypass the pyjnius crash!
+          pip install "cython<3.0" buildozer "python-for-android==2024.1.21"
 
-      # -----------------------------
-      # 6. Check Buildozer
-      # -----------------------------
       - name: Check Buildozer
         run: |
           buildozer --version
           python --version
           java -version
 
-      # -----------------------------
-      # 7. Build APK with Smart Error Extraction
-      # -----------------------------
       - name: Build APK
         shell: bash
         run: |
           set -o pipefail
-
           mkdir -p build_logs
-
-          # Run Buildozer and stream log
+          
           buildozer -v android debug 2>&1 | tee build_logs/build.log
-
           BUILD_EXIT_CODE=${PIPESTATUS[0]}
-
-          # Check if APK exists or build failed
+          
           APK_COUNT=$(find bin -maxdepth 1 -type f -name "*.apk" 2>/dev/null | wc -l)
-
+          
           if [ "$BUILD_EXIT_CODE" -ne 0 ] \vert{}\vert{} [ "$APK_COUNT" -eq 0 ]; then
             echo "## 🚨 Build Failed - True Error Summary" >> $GITHUB_STEP_SUMMARY
             echo '```text' >> $GITHUB_STEP_SUMMARY
-            
-            # Extract ONLY actual error/exception lines, ignoring Cython/C compiler spam
             grep -i -E "error|exception|traceback|failed" build_logs/build.log | grep -v -i "performance hint" | tail -n 40 >> $GITHUB_STEP_SUMMARY
-            
             echo '```' >> $GITHUB_STEP_SUMMARY
-            
             exit 1
           fi
-
+          
           echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
-          echo "APK Generated successfully." >> $GITHUB_STEP_SUMMARY
 
-      # -----------------------------
-      # 8. Upload complete log
-      # -----------------------------
       - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -114,9 +73,6 @@ jobs:
           path: build_logs/build.log
           if-no-files-found: warn
 
-      # -----------------------------
-      # 9. Upload APK only if it exists
-      # -----------------------------
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
@@ -124,3 +80,4 @@ jobs:
           name: AI-Shell-App
           path: bin/*.apk
           if-no-files-found: error
+   
