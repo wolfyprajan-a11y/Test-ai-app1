@@ -33,24 +33,27 @@ jobs:
 
       - name: Install Buildozer & Tools
         run: |
+          # Lock pip in the host environment to bypass system-level installation errors
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
           pip install "cython<3.0" buildozer "python-for-android==2024.1.21"
 
       - name: Build APK
         run: |
           mkdir -p build_logs
-          # Run buildozer and let logs print live
           buildozer -v android debug 2>&1 | tee build_logs/build.log
 
-      - name: Copy Generated APK
-        if: always()
+      - name: Verify & Copy APK
         run: |
           mkdir -p bin_output
           FOUND_APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
-          if [ -n "$FOUND_APK" ]; then
-            echo "Found APK at: $FOUND_APK"
-            cp "$FOUND_APK" bin_output/AI-Shell.apk
+          
+          if [ -z "$FOUND_APK" ]; then
+            echo "🚨 BUILD FAILED: Buildozer did not produce an .apk file."
+            exit 1
           fi
+          
+          echo "Found APK at: $FOUND_APK"
+          cp "$FOUND_APK" bin_output/AI-Shell.apk
 
       - name: Upload Build Log
         if: always()
@@ -60,6 +63,7 @@ jobs:
           path: build_logs/build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-App
