@@ -31,43 +31,25 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev
 
-      - name: Install Buildozer & Fix Pyjnius Bug
+      - name: Install Buildozer & Tools
         run: |
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
           pip install "cython<3.0" buildozer "python-for-android==2024.1.21"
 
-      - name: Check Buildozer
-        run: |
-          buildozer --version
-          python --version
-          java -version
-
       - name: Build APK
-        shell: bash
         run: |
-          set -o pipefail
           mkdir -p build_logs
-          
-          # Run buildozer and capture full output
-          buildozer -v android debug > build_logs/build.log 2>&1 || BUILD_FAILED=1
-          
-          # Search everywhere for an APK file
+          # Run buildozer and let logs print live
+          buildozer -v android debug 2>&1 | tee build_logs/build.log
+
+      - name: Copy Generated APK
+        if: always()
+        run: |
+          mkdir -p bin_output
           FOUND_APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
-          
           if [ -n "$FOUND_APK" ]; then
             echo "Found APK at: $FOUND_APK"
-            mkdir -p bin
-            cp "$FOUND_APK" bin/app-debug.apk
-          else
-            BUILD_FAILED=1
-          fi
-
-          if [ "$BUILD_FAILED" = "1" ]; then
-            echo "## 🚨 Build Failed - Raw Log Tail" >> $GITHUB_STEP_SUMMARY
-            echo '```text' >> $GITHUB_STEP_SUMMARY
-            tail -n 100 build_logs/build.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            exit 1
+            cp "$FOUND_APK" bin_output/AI-Shell.apk
           fi
 
       - name: Upload Build Log
@@ -76,12 +58,10 @@ jobs:
         with:
           name: build-log
           path: build_logs/build.log
-          if-no-files-found: warn
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-App
-          path: bin/*.apk
+          path: bin_output/*.apk
           if-no-files-found: error
