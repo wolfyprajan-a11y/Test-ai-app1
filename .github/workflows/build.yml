@@ -48,21 +48,11 @@ jobs:
           set -o pipefail
           mkdir -p build_logs
           
-          # Run buildozer
-          buildozer -v android debug 2>&1 | tee build_logs/build.log || BUILD_FAILED=1
+          buildozer -v android debug 2>&1 | tee build_logs/build.log
           
-          APK_COUNT=$(find bin -maxdepth 1 -type f -name "*.apk" 2>/dev/null | wc -l)
-          
-          if [ "$BUILD_FAILED" = "1" ] \vert{}\vert{} [ "$APK_COUNT" -eq 0 ]; then
-            echo "## 🚨 Build Failed - True Error Summary" >> "$GITHUB_STEP_SUMMARY"
-            echo '```text' >> "$GITHUB_STEP_SUMMARY"
-            grep -i -E "error|exception|traceback|failed" build_logs/build.log | grep -v -i "performance hint" | tail -n 40 >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          else
-            echo "## 🎉 Build Successful!" >> "$GITHUB_STEP_SUMMARY"
-            echo "APK generated successfully." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "================ LISTING BIN FOLDER ================"
+          ls -la bin/ || true
+          find bin/ -type f || true
 
       - name: Upload Build Log
         if: always()
@@ -73,9 +63,10 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: AI-Shell-App
-          path: bin/*.apk
+          path: |
+            bin/*.apk
+            bin/**/*.apk
           if-no-files-found: error
