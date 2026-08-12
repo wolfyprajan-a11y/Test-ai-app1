@@ -6,18 +6,18 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
-# Requirements for API rotation and networking
-requirements = python3, kivy, requests, urllib3, certifi, openssl
+# Explicitly pin python3 to 3.11.5 to prevent the Python 3.14 bleeding-edge crash
+requirements = python3==3.11.5, kivy, requests, urllib3, certifi, openssl
 
 orientation = portrait
 fullscreen = 0
-android.permissions = INTERNET
+android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.accept_sdk_license = True
 android.api = 33
 
-# FORCE NDK 25b to prevent the NDK r28c build failure
+# Force NDK 25b to prevent the r28c compatibility failure
 android.ndk = 25b
 
 [buildozer]
