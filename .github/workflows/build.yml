@@ -34,8 +34,6 @@ jobs:
       - name: Install Buildozer & Fix Pyjnius Bug
         run: |
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          
-          # We MUST keep the 2024 compiler locked to bypass the pyjnius crash!
           pip install "cython<3.0" buildozer "python-for-android==2024.1.21"
 
       - name: Check Buildozer
@@ -50,20 +48,21 @@ jobs:
           set -o pipefail
           mkdir -p build_logs
           
-          buildozer -v android debug 2>&1 | tee build_logs/build.log
-          BUILD_EXIT_CODE=${PIPESTATUS[0]}
+          # Run buildozer
+          buildozer -v android debug 2>&1 | tee build_logs/build.log || BUILD_FAILED=1
           
           APK_COUNT=$(find bin -maxdepth 1 -type f -name "*.apk" 2>/dev/null | wc -l)
           
-          if [ "$BUILD_EXIT_CODE" -ne 0 ] \vert{}\vert{} [ "$APK_COUNT" -eq 0 ]; then
-            echo "## 🚨 Build Failed - True Error Summary" >> $GITHUB_STEP_SUMMARY
-            echo '```text' >> $GITHUB_STEP_SUMMARY
-            grep -i -E "error|exception|traceback|failed" build_logs/build.log | grep -v -i "performance hint" | tail -n 40 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ "$BUILD_FAILED" = "1" ] \vert{}\vert{} [ "$APK_COUNT" -eq 0 ]; then
+            echo "## 🚨 Build Failed - True Error Summary" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            grep -i -E "error|exception|traceback|failed" build_logs/build.log | grep -v -i "performance hint" | tail -n 40 >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
             exit 1
+          else
+            echo "## 🎉 Build Successful!" >> "$GITHUB_STEP_SUMMARY"
+            echo "APK generated successfully." >> "$GITHUB_STEP_SUMMARY"
           fi
-          
-          echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Build Log
         if: always()
@@ -80,4 +79,3 @@ jobs:
           name: AI-Shell-App
           path: bin/*.apk
           if-no-files-found: error
-   
