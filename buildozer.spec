@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
-# Explicitly pin python3 to 3.11.5 to prevent the Python 3.14 bleeding-edge crash
-requirements = python3==3.11.5, kivy, requests, urllib3, certifi, openssl
+# We strictly pin BOTH python3 and hostpython3 to bypass the 3.14 bleeding-edge crash and sync the compilers.
+requirements = python3==3.11.5, hostpython3==3.11.5, kivy, requests, urllib3, certifi, openssl
 
 orientation = portrait
 fullscreen = 0
@@ -17,7 +17,6 @@ android.allow_backup = True
 android.accept_sdk_license = True
 android.api = 33
 
-# Force NDK 25b to prevent the r28c compatibility failure
 android.ndk = 25b
 
 [buildozer]
