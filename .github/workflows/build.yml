@@ -58,7 +58,6 @@ jobs:
       # -----------------------------
       - name: Install Buildozer
         run: |
-          # Keep pip pinned below 24.1 to prevent the BuildDependencyInstallerError crash
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
           pip install "cython<3.0" buildozer
 
@@ -72,70 +71,37 @@ jobs:
           java -version
 
       # -----------------------------
-      # 7. Build APK
+      # 7. Build APK with Smart Error Extraction
       # -----------------------------
       - name: Build APK
         shell: bash
         run: |
           set -o pipefail
 
-          echo "=========================================="
-          echo "        STARTING ANDROID BUILD"
-          echo "=========================================="
-
           mkdir -p build_logs
 
-          # Run Buildozer and save the log
+          # Run Buildozer and stream log
           buildozer -v android debug 2>&1 | tee build_logs/build.log
 
           BUILD_EXIT_CODE=${PIPESTATUS[0]}
 
-          echo ""
-          echo "=========================================="
-          echo "        BUILDOZER EXIT CODE"
-          echo "=========================================="
-          echo "$BUILD_EXIT_CODE"
-
-          # If Buildozer failed, stop the workflow and print the SMART log.
-          if [ "$BUILD_EXIT_CODE" -ne 0 ]; then
-            echo ""
-            echo "=========================================="
-            echo "          BUILD FAILED"
-            echo "=========================================="
-
-            echo ""
-            echo "========== REAL ERROR LOG =========="
-            # This deletes all the useless environment variables first, 
-            # then prints the real crash traceback!
-            grep -v '^[[:space:]]*#' build_logs/build.log | tail -n 100
-
-            exit "$BUILD_EXIT_CODE"
-          fi
-
-          # Check whether an APK exists.
+          # Check if APK exists or build failed
           APK_COUNT=$(find bin -maxdepth 1 -type f -name "*.apk" 2>/dev/null | wc -l)
 
-          if [ "$APK_COUNT" -eq 0 ]; then
-            echo ""
-            echo "=========================================="
-            echo "      BUILD FAILED: NO APK FOUND"
-            echo "=========================================="
-
-            echo ""
-            echo "========== REAL ERROR LOG =========="
-            grep -v '^[[:space:]]*#' build_logs/build.log | tail -n 100
-
+          if [ "$BUILD_EXIT_CODE" -ne 0 ] \vert{}\vert{} [ "$APK_COUNT" -eq 0 ]; then
+            echo "## 🚨 Build Failed - True Error Summary" >> $GITHUB_STEP_SUMMARY
+            echo '```text' >> $GITHUB_STEP_SUMMARY
+            
+            # Extract ONLY actual error/exception lines, ignoring Cython/C compiler spam
+            grep -i -E "error|exception|traceback|failed" build_logs/build.log | grep -v -i "performance hint" | tail -n 40 >> $GITHUB_STEP_SUMMARY
+            
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            
             exit 1
           fi
 
-          echo ""
-          echo "=========================================="
-          echo "          APK BUILD SUCCESSFUL"
-          echo "=========================================="
-
-          echo ""
-          echo "Generated APK:"
-          find bin -maxdepth 1 -type f -name "*.apk" -print
+          echo "## 🎉 Build Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "APK Generated successfully." >> $GITHUB_STEP_SUMMARY
 
       # -----------------------------
       # 8. Upload complete log
