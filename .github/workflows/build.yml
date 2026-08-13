@@ -31,11 +31,11 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev
 
-      - name: Install Buildozer & Tools
+      - name: Install Buildozer & Dependencies (With sh<2.0 Fix)
         run: |
-          # Lock pip in the host environment to bypass system-level installation errors
           python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          pip install "cython<3.0" buildozer "python-for-android==2024.1.21"
+          # Lock sh below 2.0 to eliminate the python-for-android dependency conflict!
+          pip install "sh<2.0" "cython<3.0" buildozer "python-for-android==2024.1.21"
 
       - name: Build APK
         run: |
