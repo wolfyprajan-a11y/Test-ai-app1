@@ -31,11 +31,17 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev
 
-      - name: Install Buildozer & Dependencies (With sh<2.0 Fix)
+      - name: Install Buildozer & Fix Dependencies
         run: |
-          python -m pip install "pip<24.1" setuptools "virtualenv==20.21.0"
-          # Lock sh below 2.0 to eliminate the python-for-android dependency conflict!
-          pip install "sh<2.0" "cython<3.0" buildozer "python-for-android==2024.1.21"
+          python -m pip install --upgrade pip
+          pip install "pip<24.1" "setuptools<70" "virtualenv==20.21.0"
+          
+          # Force sh to 1.14.3 to satisfy python-for-android
+          pip install "sh==1.14.3" "cython<3.0" appdirs colorama jinja2 build toml packaging
+          
+          # Install python-for-android without allowing pip to touch sh
+          pip install --no-deps "python-for-android==2024.1.21"
+          pip install buildozer
 
       - name: Build APK
         run: |
