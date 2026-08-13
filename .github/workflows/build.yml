@@ -51,10 +51,15 @@ jobs:
       - name: Verify & Copy APK
         run: |
           mkdir -p bin_output
-          FOUND_APK=$(find . -type f -name "*.apk" 2>/dev/null | head -n 1)
+          
+          echo "=== SEARCHING FOR GENERATED APK ==="
+          # Search current working dir and buildozer home dir
+          FOUND_APK=$(find . /home/runner/.buildozer -name "*.apk" 2>/dev/null | head -n 1)
           
           if [ -z "$FOUND_APK" ]; then
             echo "🚨 BUILD FAILED: Buildozer did not produce an .apk file."
+            echo "Listing bin directory contents:"
+            ls -la bin/ || true
             exit 1
           fi
           
