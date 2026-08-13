@@ -6,7 +6,6 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
-# Cleaned requirements to prevent recipe conflicts
 requirements = python3, kivy, requests, urllib3, certifi
 
 orientation = portrait
