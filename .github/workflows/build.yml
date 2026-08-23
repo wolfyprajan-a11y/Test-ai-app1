@@ -32,25 +32,23 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             git zip unzip autoconf automake libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
-            cmake libffi-dev libssl-dev
+            cmake libffi-dev libssl-dev ccache
 
-      - name: Install Buildozer & Fix Dependencies
+      - name: Install Buildozer & Cython
         run: |
           python -m pip install --upgrade pip
-          pip install "pip<24.1" "setuptools<70" "virtualenv==20.21.0"
-          pip install "sh==1.14.3" "cython<3.0" appdirs colorama jinja2 build toml packaging
-          pip install --no-deps "python-for-android==2024.1.21"
-          pip install buildozer
+          pip install buildozer cython virtualenv
+          pip install "sh<2.0"
 
       - name: Build APK
         run: |
-          mkdir -p build_logs
-          buildozer -v android debug 2>&1 | tee build_logs/build.log
+          # Running directly to ensure errors are caught and displayed in the console
+          buildozer -v android debug
 
       - name: Verify & Copy APK
         run: |
           mkdir -p bin_output
-          FOUND_APK=$(find . /home/runner/.buildozer -name "*.apk" 2>/dev/null | head -n 1)
+          FOUND_APK=$(find bin/ -name "*.apk" 2>/dev/null | head -n 1)
           
           if [ -z "$FOUND_APK" ]; then
             echo "🚨 BUILD FAILED: Buildozer did not produce an .apk file."
@@ -60,13 +58,6 @@ jobs:
           
           echo "Found APK at: $FOUND_APK"
           cp "$FOUND_APK" bin_output/AI-Shell.apk
-
-      - name: Upload Build Log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build_logs/build.log
 
       - name: Upload APK
         if: success()
