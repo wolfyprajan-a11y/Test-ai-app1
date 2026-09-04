@@ -24,6 +24,18 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v3
+        with:
+          path: ~/.buildozer
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+
+      - name: Cache Buildozer local directory
+        uses: actions/cache@v3
+        with:
+          path: .buildozer
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}
+
       - name: Install System Dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -38,11 +50,8 @@ jobs:
       - name: Install Buildozer & Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install buildozer virtualenv
-          
-          # Pin Cython strictly to 0.29.36 to ensure compatibility with Kivy 2.1.0
-          pip install "sh==1.14.3" "Cython==0.29.36" appdirs colorama jinja2 build toml packaging
-          pip install --no-deps "python-for-android==2024.1.21"
+          pip install "cython<3.0" "sh<2.0" virtualenv
+          pip install buildozer
 
       - name: Build APK
         run: |
