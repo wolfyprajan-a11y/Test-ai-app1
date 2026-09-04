@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
-# Downgraded to Kivy 2.1.0 to guarantee Android wheel compatibility and removed conflicting packages
-requirements = python3,hostpython3,kivy==2.1.0,requests
+# Explicitly pin python3 and hostpython3 to 3.11.9 to bypass the Python 3.14 C-API compilation errors
+requirements = python3==3.11.9,hostpython3==3.11.9,kivy==2.1.0,requests==2.31.0,urllib3==2.1.0,certifi==2024.2.2,charset-normalizer==2.1.1,idna==3.7
 
 orientation = portrait
 fullscreen = 0
@@ -15,10 +15,8 @@ android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 android.archs = arm64-v8a, armeabi-v7a
 android.allow_backup = True
 android.accept_sdk_license = True
-
-# Explicit API and telemetry configuration
-android.minapi = 24
 android.api = 33
+android.minapi = 24
 android.ndk = 25b
 android.disable_telemetry = 1
 
