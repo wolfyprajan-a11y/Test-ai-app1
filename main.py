@@ -1,6 +1,8 @@
 import os
 import sys
 import threading
+import traceback
+import json
 from pathlib import Path
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -21,21 +23,23 @@ class AIShellApp(App):
         # Responsive output log
         self.scroll = ScrollView(size_hint=(1, 0.7))
         self.output_label = Label(
-            text="AI Coding Shell Initialized.",
+            text="AI Coding Shell Initialized.\n",
             size_hint_y=None,
             halign="left",
-            valign="top"
+            valign="top",
+            font_size='12sp'
         )
         self.output_label.bind(width=lambda *x: self.output_label.setter('text_size')(self.output_label, (self.output_label.width, None)))
         self.output_label.bind(texture_size=self.output_label.setter('size'))
         self.scroll.add_widget(self.output_label)
         self.layout.add_widget(self.scroll)
         
-        # Input block
+        # Input block with syntax highlighting hint
         self.code_input = TextInput(
             size_hint=(1, 0.2),
             hint_text="Enter Python code...",
-            multiline=True
+            multiline=True,
+            font_size='11sp'
         )
         self.layout.add_widget(self.code_input)
         
@@ -47,40 +51,98 @@ class AIShellApp(App):
         self.run_btn.bind(on_press=self.execute_code)
         self.layout.add_widget(self.run_btn)
         
+        # Load config if exists
+        self._load_config()
+        
         return self.layout
 
+    def _load_config(self):
+        """Load configuration from ~/.aishell/config.json"""
+        config_path = self.app_dir / "config.json"
+        if config_path.exists():
+            try:
+                with open(config_path, 'r') as f:
+                    self.config = json.load(f)
+                    self._append_output(f"[INFO] Config loaded from {config_path}")
+            except Exception as e:
+                self._append_output(f"[WARNING] Failed to load config: {str(e)}")
+                self.config = {}
+        else:
+            self.config = {}
+
     def execute_code(self, instance):
-        code = self.code_input.text
+        """Execute user code in isolated thread"""
+        code = self.code_input.text.strip()
+        
+        if not code:
+            self._append_output("[WARNING] No code to execute")
+            return
+        
         self.run_btn.disabled = True
-        self.output_label.text += "\n\nExecuting..."
+        self._append_output(f"\n>>> Executing...\n")
         
         # Thread-safe dispatch
         threading.Thread(target=self._run_code_thread, args=(code,), daemon=True).start()
 
     def _run_code_thread(self, code):
-        # Restricted code execution scope
+        """Execute code in restricted namespace"""
+        # Enhanced safe namespace with common utilities
         safe_namespace = {
-            "__builtins__": __builtins__,
-            "print": self._safe_print
+            "__builtins__": {
+                "print": self._safe_print,
+                "len": len,
+                "range": range,
+                "str": str,
+                "int": int,
+                "float": float,
+                "list": list,
+                "dict": dict,
+                "sum": sum,
+                "max": max,
+                "min": min,
+                "abs": abs,
+                "round": round,
+                "sorted": sorted,
+                "enumerate": enumerate,
+                "zip": zip,
+                "map": map,
+                "filter": filter,
+                "reversed": reversed,
+            },
+            "config": self.config
         }
         
         try:
             exec(code, safe_namespace)
-            result = "Execution completed successfully."
+            self._append_output("[SUCCESS] Execution completed.")
+        except SyntaxError as e:
+            # Syntax errors need special handling
+            self._append_output(f"[SYNTAX ERROR] {e.msg} at line {e.lineno}")
         except Exception as e:
-            # Direct technical error trace without abstraction
-            result = f"Execution Error: {type(e).__name__}: {str(e)}"
-            
-        Clock.schedule_once(lambda dt: self._update_ui(result))
+            # Technical error trace
+            error_msg = f"[ERROR] {type(e).__name__}: {str(e)}\n"
+            error_msg += "".join(traceback.format_exc())
+            self._append_output(error_msg)
+        finally:
+            Clock.schedule_once(lambda dt: self._re_enable_button())
 
     def _safe_print(self, *args, **kwargs):
+        """Thread-safe print handler"""
         text = " ".join(map(str, args))
-        Clock.schedule_once(lambda dt: self._update_ui(text))
-        
+        self._append_output(text)
+
+    def _append_output(self, message):
+        """Thread-safe UI update"""
+        Clock.schedule_once(lambda dt: self._update_ui(message))
+
     def _update_ui(self, message):
-        self.output_label.text += f"\n{message}"
+        """Update output label"""
+        self.output_label.text += f"{message}\n"
+        self.scroll.scroll_y = 0  # Auto-scroll to bottom
+
+    def _re_enable_button(self):
+        """Re-enable execute button after code execution"""
         self.run_btn.disabled = False
-        self.scroll.scroll_y = 0
 
 if __name__ == '__main__':
     AIShellApp().run()
