@@ -7,7 +7,7 @@ source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
 # Downgraded Python to 3.10.14 to fix the Kivy 2.1.0 'struct _frame' compilation crash
-requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.1.0,requests==2.31.0,urllib3==2.1.0,certifi==2024.2.2,charset-normalizer==2.1.1,idna==3.7
+requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.1.0,requests
 
 orientation = portrait
 fullscreen = 0
