@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.2
 
-# Upgraded Kivy to 2.3.0 to ensure compatibility with modern Cython/Python builds
-requirements = python3,kivy==2.3.0,requests==2.31.0,urllib3==2.1.0,certifi==2024.2.2,charset-normalizer==2.1.1,idna==3.7
+# Upgrading Kivy to >=2.4.0 to resolve Python 3.14 C-API compilation crashes
+requirements = python3,kivy>=2.4.0,requests==2.31.0,urllib3==2.1.0,certifi==2024.2.2,charset-normalizer==2.1.1,idna==3.7
 
 orientation = portrait
 fullscreen = 0
