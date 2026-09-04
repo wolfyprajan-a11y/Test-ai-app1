@@ -39,8 +39,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install buildozer virtualenv
           
-          # Force Cython >= 3.0.0 to prevent the missing 'cgi' module error in Python 3.14
-          pip install "sh<2.0" "Cython>=3.0.0"
+          # Revert Cython back to <3.0 to satisfy Buildozer's requirements
+          pip install "sh<2.0" "cython<3.0"
 
       - name: Build APK
         run: |
