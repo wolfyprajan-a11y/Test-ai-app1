@@ -49,9 +49,12 @@ jobs:
 
       - name: Install Buildozer & Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install "cython<3.0" "sh<2.0" virtualenv
-          pip install buildozer
+          python -m pip install "pip<24.1"
+          pip install "Cython==0.29.36" virtualenv
+          
+          # Pull the bleeding-edge master branches to fix the pip spinner and _crypt crashes
+          pip install git+https://github.com/kivy/python-for-android.git
+          pip install git+https://github.com/kivy/buildozer.git
 
       - name: Build APK
         run: |
@@ -78,9 +81,3 @@ jobs:
           name: AI-Shell-App
           path: bin_output/*.apk
           if-no-files-found: error
-      - name: Install Buildozer & Dependencies
-        run: |
-          # Pin pip below 24.1 to prevent the 'open_rich_spinner' ImportError inside Buildozer
-          python -m pip install "pip<24.1"
-          pip install "cython<3.0" "sh<2.0" virtualenv
-          pip install buildozer
