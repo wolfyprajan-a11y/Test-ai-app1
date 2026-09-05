@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.3
 
-# Use simplified requirements with Kivy 2.3.0 to trigger pre-built wheel downloads
-requirements = python3,kivy==2.3.0,requests
+# Lock Python to 3.11.9 to prevent the system from downloading Python 3.14 and crashing Kivy
+requirements = python3==3.11.9,hostpython3==3.11.9,kivy==2.3.0,requests
 
 orientation = portrait
 fullscreen = 0
