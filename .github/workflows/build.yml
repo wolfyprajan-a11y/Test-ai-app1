@@ -13,10 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      # Switched to 3.11 to match the buildozer.spec
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -24,17 +25,18 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      # Added -v2 to the keys to clear out the poisoned Python 3.14 cache
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v2
 
       - name: Cache Buildozer local directory
         uses: actions/cache@v3
         with:
           path: .buildozer
-          key: buildozer-local-${{ hashFiles('buildozer.spec') }}
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v2
 
       - name: Install System Dependencies
         env:
@@ -52,7 +54,6 @@ jobs:
           python -m pip install "pip<24.1"
           pip install "Cython==0.29.36" virtualenv
           
-          # Pull the bleeding-edge master branches to fix the pip spinner and _crypt crashes
           pip install git+https://github.com/kivy/python-for-android.git
           pip install git+https://github.com/kivy/buildozer.git
 
