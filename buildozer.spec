@@ -4,10 +4,10 @@ package.name = aishell
 package.domain = org.wolfyprajan
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
-version = 0.2
+version = 0.3
 
-# Upgraded Kivy to 2.3.0 to use pre-built Android wheels and bypass C compilation errors
-requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.3.0,requests
+# Use simplified requirements with Kivy 2.3.0 to trigger pre-built wheel downloads
+requirements = python3,kivy==2.3.0,requests
 
 orientation = portrait
 fullscreen = 0
@@ -23,3 +23,6 @@ android.disable_telemetry = 1
 [buildozer]
 log_level = 2
 warn_on_root = 1
+
+# Force the environment to use the patched master branch to prevent pip crashes
+p4a.branch = master
