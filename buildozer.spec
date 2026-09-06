@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.3
 
-# UPGRADE TO 3.12.3: This natively fixes the Android NDK 'grp' compilation bug
-requirements = python3==3.12.3,kivy==2.3.0,requests
+# Both python3 and hostpython3 MUST be explicitly pinned to the exact same version
+requirements = python3==3.12.3,hostpython3==3.12.3,kivy==2.3.0,requests
 
 orientation = portrait
 fullscreen = 0
