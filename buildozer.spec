@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 0.3
 
-# Lock Python to 3.11.9 to prevent the system from downloading Python 3.14 and crashing Kivy
-requirements = python3==3.11.9,hostpython3==3.11.9,kivy==2.3.0,requests
+# UPGRADE TO 3.12.3: This natively fixes the Android NDK 'grp' compilation bug
+requirements = python3==3.12.3,kivy==2.3.0,requests
 
 orientation = portrait
 fullscreen = 0
