@@ -24,18 +24,17 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      # Bumped the cache keys to -v5 to purge the 3.14.2 hostpython binaries
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v5
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v6
 
       - name: Cache Buildozer local directory
         uses: actions/cache@v3
         with:
           path: .buildozer
-          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v5
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v6
 
       - name: Install System Dependencies
         env:
