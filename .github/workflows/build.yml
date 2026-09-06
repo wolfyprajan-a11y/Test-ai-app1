@@ -13,7 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Set to 3.12 to match the new spec
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -25,18 +24,18 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      # Bumped the cache keys to -v4 to clear out the broken Python 3.11 files
+      # Bumped the cache keys to -v5 to purge the 3.14.2 hostpython binaries
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v4
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v5
 
       - name: Cache Buildozer local directory
         uses: actions/cache@v3
         with:
           path: .buildozer
-          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v4
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v5
 
       - name: Install System Dependencies
         env:
