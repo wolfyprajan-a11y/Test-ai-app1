@@ -6,14 +6,14 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 1.0
 
-# Pinned to 3.12.3 to naturally bypass Unix C-library compilation bugs
-requirements = python3==3.12.3,hostpython3==3.12.3,kivy==2.3.0,requests
+# Reverted to 3.10.14: safely skips the missing 'grp' module without halting the build
+requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.3.0,requests
 
 orientation = portrait
 fullscreen = 0
 android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
-# CRITICAL FIX: Target 64-bit ONLY. Bypasses the 32-bit 'grp' crash and cuts build time in half.
+# 64-bit only to keep builds fast and stable
 android.archs = arm64-v8a
 
 android.allow_backup = True
