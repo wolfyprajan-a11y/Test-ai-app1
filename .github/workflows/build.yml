@@ -13,7 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Explicitly set host Python to 3.10 to perfectly match the target Python
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -25,18 +24,23 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      # Clear out the poisoned 3.12 cache by bumping the key to -v8
+      # CRITICAL FIX: Add official Gradle Setup Action
+      # This completely bypasses the HTTP 504 Gateway errors by downloading 
+      # Gradle from GitHub's internal edge nodes and aggressively caching it.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Cache Buildozer global directory
         uses: actions/cache@v3
         with:
           path: ~/.buildozer
-          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v8
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }}-v9
 
       - name: Cache Buildozer local directory
         uses: actions/cache@v3
         with:
           path: .buildozer
-          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v8
+          key: buildozer-local-${{ hashFiles('buildozer.spec') }}-v9
 
       - name: Install System Dependencies
         env:
@@ -51,7 +55,6 @@ jobs:
 
       - name: Install Buildozer & Dependencies
         run: |
-          # Pin pip to prevent Buildozer's rich spinner crash
           python -m pip install "pip<24.1"
           pip install "Cython==0.29.36" virtualenv
           
