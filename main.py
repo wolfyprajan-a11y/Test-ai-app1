@@ -112,7 +112,6 @@ class ChatBubble(BoxLayout):
             halign="left", text_size=(Window.width - dp(60), None)
         ))
 
-        # Plain rendering without markup to prevent bracketed text and code arrays from vanishing
         self.msg_label = Label(
             text=text, size_hint_y=None, font_size=sp(14),
             color=(0.93, 0.93, 0.94, 1), halign="left", valign="top"
@@ -366,9 +365,8 @@ class AIShellApp(App):
         Window.bind(on_keyboard=self.on_keyboard)
         Window.clearcolor = (0.07, 0.07, 0.08, 1)
 
-        self.app_dir = Path.home() / ".aishell"
-        self.app_dir.mkdir(parents=True, exist_ok=True)
-        self.config_file = self.app_dir / "gemini_agents.json"
+        # CRITICAL FIX: Android blocks writing to Path.home(). Use Kivy's safe user_data_dir.
+        self.config_file = Path(self.user_data_dir) / "gemini_agents.json"
 
         self.agents = self.load_agents()
         self.chat_histories = {}
