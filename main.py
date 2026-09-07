@@ -6,6 +6,11 @@ import threading
 import webbrowser
 from pathlib import Path
 import requests
+import certifi
+
+# CRITICAL FIX 1: Map Android's SSL certificates so HTTPS requests don't crash
+os.environ["SSL_CERT_FILE"] = certifi.where()
+os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
@@ -365,7 +370,6 @@ class AIShellApp(App):
         Window.bind(on_keyboard=self.on_keyboard)
         Window.clearcolor = (0.07, 0.07, 0.08, 1)
 
-        # CRITICAL FIX: Android blocks writing to Path.home(). Use Kivy's safe user_data_dir.
         self.config_file = Path(self.user_data_dir) / "gemini_agents.json"
 
         self.agents = self.load_agents()
@@ -422,6 +426,16 @@ class AIShellApp(App):
         self.chat_histories[self.active_agent_name].append({"text": text, "is_user": is_user})
 
     def stream_ai_response(self, prompt, agent, bubble_widget):
+        # CRITICAL FIX 2: Attach POSIX background thread to Android's Java Virtual Machine.
+        # This prevents the OS from triggering a Segmentation Fault during the DNS lookup.
+        try:
+            from kivy.utils import platform
+            if platform == 'android':
+                from jnius import autoclass
+                autoclass('java.lang.System')
+        except Exception:
+            pass
+            
         headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
         history = self.chat_histories.get(self.active_agent_name, [])[-6:]
         messages = [{"role": "system", "content": agent.get("system_prompt", "")}]
