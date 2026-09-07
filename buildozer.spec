@@ -6,14 +6,14 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,json
 version = 1.0
 
-# Pinned Python 3.10 stack with certifi for Android HTTPS SSL verification
+# Added certifi to map Android HTTPS SSL verification 
 requirements = python3==3.10.14,hostpython3==3.10.14,kivy==2.3.0,requests,certifi
 
 orientation = portrait
 fullscreen = 0
 android.permissions = INTERNET, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
-# Strictly 64-bit architecture to ensure fast, stable builds
+# Strictly 64-bit architecture
 android.archs = arm64-v8a
 
 android.allow_backup = True
@@ -27,5 +27,4 @@ android.disable_telemetry = 1
 log_level = 2
 warn_on_root = 1
 
-# Forces python-for-android to use the patched master branch
 p4a.branch = master
