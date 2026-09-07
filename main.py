@@ -6,9 +6,9 @@ import threading
 import webbrowser
 from pathlib import Path
 import requests
-import certifi
 
-# CRITICAL FIX 1: Map Android's SSL certificates so HTTPS requests don't crash
+# 1. FIX SSL: Map Android's SSL certificates so HTTPS requests don't crash
+import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 
@@ -89,7 +89,6 @@ DEFAULT_AGENTS = {
         ]
     }
 }
-
 
 class ChatBubble(BoxLayout):
     def __init__(self, text="", is_user=False, on_handoff=None, **kwargs):
@@ -175,7 +174,6 @@ class ChatBubble(BoxLayout):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-
 class HomeScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -221,7 +219,6 @@ class HomeScreen(Screen):
         create_btn.bind(on_press=lambda x: app.open_create_screen())
         self.layout.add_widget(create_btn)
 
-
 class CreateAgentScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -265,7 +262,6 @@ class CreateAgentScreen(Screen):
             self.prompt_input.text = ""
             self.key_input.text = ""
             app.go_home()
-
 
 class ChatScreen(Screen):
     def __init__(self, **kwargs):
@@ -364,12 +360,12 @@ class ChatScreen(Screen):
 
         threading.Thread(target=app.stream_ai_response, args=(prompt, agent, self.current_stream_bubble), daemon=True).start()
 
-
 class AIShellApp(App):
     def build(self):
         Window.bind(on_keyboard=self.on_keyboard)
         Window.clearcolor = (0.07, 0.07, 0.08, 1)
 
+        # 2. FIX STARTUP CRASH: Safely write to Android user data directory, skipping Path.home() permission errors
         self.config_file = Path(self.user_data_dir) / "gemini_agents.json"
 
         self.agents = self.load_agents()
@@ -426,8 +422,8 @@ class AIShellApp(App):
         self.chat_histories[self.active_agent_name].append({"text": text, "is_user": is_user})
 
     def stream_ai_response(self, prompt, agent, bubble_widget):
-        # CRITICAL FIX 2: Attach POSIX background thread to Android's Java Virtual Machine.
-        # This prevents the OS from triggering a Segmentation Fault during the DNS lookup.
+        # 3. FIX DNS CRASH: Attach POSIX background thread to Android's Java Virtual Machine
+        # This prevents the OS from triggering a Segmentation Fault during DNS lookup
         try:
             from kivy.utils import platform
             if platform == 'android':
@@ -435,7 +431,7 @@ class AIShellApp(App):
                 autoclass('java.lang.System')
         except Exception:
             pass
-            
+
         headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
         history = self.chat_histories.get(self.active_agent_name, [])[-6:]
         messages = [{"role": "system", "content": agent.get("system_prompt", "")}]
@@ -508,7 +504,6 @@ class AIShellApp(App):
             popup.dismiss()
         save_btn.bind(on_press=_save)
         popup.open()
-
 
 if __name__ == "__main__":
     AIShellApp().run()
