@@ -3,11 +3,13 @@ import sys
 import re
 import json
 import threading
+import socket
 import webbrowser
 from pathlib import Path
 import requests
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Map Android's SSL certificates so HTTPS requests don't crash
+# Map Android SSL certificates for secure cloud API access
 import certifi
 os.environ["SSL_CERT_FILE"] = certifi.where()
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
@@ -33,62 +35,77 @@ DEFAULT_AGENTS = {
     "🎮 Game Architect": {
         "model": "gpt-4o-mini",
         "api_key": "",
-        "system_prompt": (
-            "You are an elite game architect and systems engineer. "
-            "You design modular game mechanics, level balance, and procedural generation algorithms. "
-            "You have deep expertise in Godot engine architecture and tower defense mechanics. "
-            "When generating code, format it cleanly so it can run directly in a cloud VM or sandbox. "
-            "If sharing cloud builds or playable links, make URLs clear."
-        ),
-        "chips": [
-            "Balance Tower Defense Waves",
-            "Procedural 3D Map Logic",
-            "Godot State Machine Code"
-        ]
+        "system_prompt": "You are a game architect. Output clean, modular code.",
+        "chips": ["Balance Waves", "Procedural Logic"]
     },
     "🎬 Video Director": {
         "model": "gpt-4o-mini",
         "api_key": "",
-        "system_prompt": (
-            "You are an expert video director and sequence editor. "
-            "Provide production-ready shot lists, cut timing, camera pacing, and audio cues. "
-            "Always prioritize smooth visuals and strictly maintain still-camera perspectives without zooming in. "
-            "Deliver clean storyboards and transition notes."
-        ),
-        "chips": [
-            "Still-Camera Shot List",
-            "Smooth Visual Pacing Notes",
-            "Storyboard Sequence"
-        ]
+        "system_prompt": "You are a video director. Output shot lists and pacing notes.",
+        "chips": ["Shot List", "Storyboard"]
     },
     "⛏️ Minecraft Modder": {
         "model": "gpt-4o-mini",
         "api_key": "",
-        "system_prompt": (
-            "You are an expert Minecraft modpack creator. "
-            "You structure custom modpack folders, resolve dependency conflicts between mods, "
-            "and write scripts for custom progression, recipes, and loot tables."
-        ),
-        "chips": [
-            "Resolve Forge Conflict",
-            "Design Custom Recipe Script",
-            "Structure Modpack Folder"
-        ]
+        "system_prompt": "You are a Minecraft modder. Write custom loot tables.",
+        "chips": ["Resolve Forge Conflict", "Recipe Script"]
     },
     "🎨 Photo & Visuals": {
         "model": "gpt-4o-mini",
         "api_key": "",
-        "system_prompt": (
-            "You are a master visual prompt engineer and art director. "
-            "Transform raw ideas into photorealistic, highly-detailed image generation prompts. "
-            "Specify cinematic lighting, camera lenses, materials, color palettes, and render engines."
-        ),
-        "chips": [
-            "Photorealistic Game Asset",
-            "Cinematic Environment"
-        ]
+        "system_prompt": "You are a master visual prompt engineer.",
+        "chips": ["Cinematic Asset", "Environment Prompt"]
     }
 }
+
+def get_local_ip():
+    """Auto-detects the device's local Wi-Fi IP address."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+class MeshHandler(BaseHTTPRequestHandler):
+    """Listens for incoming payloads from the Phone Client."""
+    def do_POST(self):
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            phone_payload = json.loads(post_data)
+            
+            app = App.get_running_app()
+            
+            # Switch to the chat screen and inject the phone's prompt
+            def inject_prompt(dt):
+                app.open_chat(app.active_agent_name)
+                chat_screen = app.sm.get_screen("chat")
+                chat_screen.prompt_input.text = phone_payload.get("prompt", "")
+                chat_screen.send_prompt(None)
+                
+            Clock.schedule_once(inject_prompt)
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "received"}).encode())
+        except Exception:
+            self.send_response(500)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        return  # Suppress internal server logs
+
+def start_mesh_server():
+    """Runs the tablet's local listening server silently."""
+    try:
+        server = HTTPServer(("0.0.0.0", 5000), MeshHandler)
+        server.serve_forever()
+    except Exception:
+        pass
 
 
 class ChatBubble(BoxLayout):
@@ -234,10 +251,10 @@ class CreateAgentScreen(Screen):
         self.name_input = TextInput(hint_text="Agent Name...", size_hint_y=None, height=dp(46), multiline=False, font_size=sp(14))
         self.layout.add_widget(self.name_input)
 
-        self.prompt_input = TextInput(hint_text="System Instructions (Define role and cloud steps)...", size_hint_y=0.45, multiline=True, font_size=sp(13))
+        self.prompt_input = TextInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(13))
         self.layout.add_widget(self.prompt_input)
 
-        self.key_input = TextInput(hint_text="Dedicated API Key (sk-...)", size_hint_y=None, height=dp(46), multiline=False, password=True, font_size=sp(14))
+        self.key_input = TextInput(hint_text="API Key (sk-...)", size_hint_y=None, height=dp(46), multiline=False, password=True, font_size=sp(14))
         self.layout.add_widget(self.key_input)
 
         btn_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
@@ -260,7 +277,7 @@ class CreateAgentScreen(Screen):
         if name:
             app = App.get_running_app()
             app.agents[name] = {"model": "gpt-4o-mini", "api_key": key, "system_prompt": prompt, "chips": ["Refine Instructions"]}
-            app.save_agents()
+            app.save_data()
             self.name_input.text = ""
             self.prompt_input.text = ""
             self.key_input.text = ""
@@ -346,11 +363,48 @@ class ChatScreen(Screen):
             return
 
         app = App.get_running_app()
+        role = app.app_config.get("role", "Host")
+        
+        # --- PHONE SATELLITE MODE ---
+        if role == "Client":
+            target_ip = app.app_config.get("host_ip", "").strip()
+            if not target_ip:
+                self.chat_feed.add_widget(ChatBubble(text="⚠️ No Tablet IP configured. Tap ⚙️ to set it.", is_user=False))
+                return
+            
+            self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
+            app.record_message(prompt, is_user=True)
+            self.prompt_input.text = ""
+            self.send_btn.disabled = True
+            
+            self.current_stream_bubble = ChatBubble(text="", is_user=False)
+            self.chat_feed.add_widget(self.current_stream_bubble)
+            Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
+            
+            def send_to_host():
+                try:
+                    payload = {"prompt": prompt, "device": "phone"}
+                    ip_clean = target_ip.replace("http://", "").replace("https://", "").strip()
+                    url = f"http://{ip_clean}:5000"
+                    
+                    res = requests.post(url, json=payload, timeout=5)
+                    res.raise_for_status()
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk("✓ Handed off to Tablet Brain. Check tablet screen!"))
+                except Exception as e:
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk(f"❌ Mesh Error: {str(e)}"))
+                finally:
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.finalize_stream())
+                    Clock.schedule_once(lambda dt: setattr(self.send_btn, "disabled", False))
+
+            threading.Thread(target=send_to_host, daemon=True).start()
+            return
+
+        # --- TABLET HOST MODE ---
         agent = app.agents.get(app.active_agent_name, {})
         api_key = agent.get("api_key", "").strip()
 
         if not api_key:
-            self.chat_feed.add_widget(ChatBubble(text="⚠️ No API key configured. Tap ⚙️ at top-right to set your key.", is_user=False))
+            self.chat_feed.add_widget(ChatBubble(text="⚠️ No API key configured. Tap ⚙️ to set your key.", is_user=False))
             return
 
         self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -370,11 +424,16 @@ class AIShellApp(App):
         Window.bind(on_keyboard=self.on_keyboard)
         Window.clearcolor = (0.07, 0.07, 0.08, 1)
 
-        self.config_file = Path(self.user_data_dir) / "gemini_agents.json"
+        self.config_dir = Path(self.user_data_dir)
+        self.agents_file = self.config_dir / "gemini_agents.json"
+        self.config_file = self.config_dir / "app_config.json"
 
-        self.agents = self.load_agents()
+        self.load_data()
         self.chat_histories = {}
         self.active_agent_name = list(self.agents.keys())[0]
+
+        # Start the local mesh server in the background silently
+        threading.Thread(target=start_mesh_server, daemon=True).start()
 
         self.sm = ScreenManager(transition=SlideTransition())
         self.sm.add_widget(HomeScreen(name="home"))
@@ -391,19 +450,31 @@ class AIShellApp(App):
             return False
         return False
 
-    def load_agents(self):
+    def load_data(self):
+        if self.agents_file.exists():
+            try:
+                with open(self.agents_file, "r") as f:
+                    self.agents = json.load(f)
+            except Exception:
+                self.agents = DEFAULT_AGENTS
+        else:
+            self.agents = DEFAULT_AGENTS
+
         if self.config_file.exists():
             try:
                 with open(self.config_file, "r") as f:
-                    return json.load(f)
+                    self.app_config = json.load(f)
             except Exception:
-                pass
-        return DEFAULT_AGENTS
+                self.app_config = {"role": "Host", "host_ip": ""}
+        else:
+            self.app_config = {"role": "Host", "host_ip": ""}
 
-    def save_agents(self):
+    def save_data(self):
         try:
-            with open(self.config_file, "w") as f:
+            with open(self.agents_file, "w") as f:
                 json.dump(self.agents, f, indent=2)
+            with open(self.config_file, "w") as f:
+                json.dump(self.app_config, f, indent=2)
         except Exception:
             pass
 
@@ -482,20 +553,66 @@ class AIShellApp(App):
 
     def open_settings_modal(self):
         current_agent = self.agents[self.active_agent_name]
+        
         box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
-        box.add_widget(Label(text=f"Settings: {self.active_agent_name}", size_hint_y=None, height=dp(32), bold=True, font_size=sp(14)))
+        box.add_widget(Label(text=f"Settings: {self.active_agent_name}", size_hint_y=None, height=dp(25), bold=True, font_size=sp(14)))
 
-        key_input = TextInput(text=current_agent.get("api_key", ""), hint_text="API Key (sk-...)", multiline=False, password=True, size_hint_y=None, height=dp(44))
+        # Agent Key
+        box.add_widget(Label(text="Cloud API Key", size_hint_y=None, height=dp(20), font_size=sp(12)))
+        key_input = TextInput(text=current_agent.get("api_key", ""), hint_text="sk-...", multiline=False, password=True, size_hint_y=None, height=dp(40))
         box.add_widget(key_input)
 
-        save_btn = Button(text="Save Key", size_hint_y=None, height=dp(44), background_color=(0.2, 0.7, 0.3, 1), bold=True)
+        # Mesh Role
+        box.add_widget(Label(text="Device Role", size_hint_y=None, height=dp(20), font_size=sp(12)))
+        role_box = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+        
+        current_role = self.app_config.get("role", "Host")
+        
+        host_color = (0.2, 0.7, 0.3, 1) if current_role == "Host" else (0.3, 0.3, 0.3, 1)
+        client_color = (0.2, 0.7, 0.3, 1) if current_role == "Client" else (0.3, 0.3, 0.3, 1)
+        
+        host_btn = Button(text="Tablet (Host)", background_color=host_color, bold=True)
+        client_btn = Button(text="Phone (Client)", background_color=client_color, bold=True)
+        
+        role_box.add_widget(host_btn)
+        role_box.add_widget(client_btn)
+        box.add_widget(role_box)
+
+        # Host IP
+        ip_label = Label(text=f"Host IP Address (My IP: {get_local_ip()})", size_hint_y=None, height=dp(20), font_size=sp(12))
+        box.add_widget(ip_label)
+        
+        ip_input = TextInput(text=self.app_config.get("host_ip", ""), hint_text="e.g. 192.168.1.5", multiline=False, size_hint_y=None, height=dp(40))
+        box.add_widget(ip_input)
+
+        save_btn = Button(text="Save Settings", size_hint_y=None, height=dp(44), background_color=(0.2, 0.45, 0.9, 1), bold=True)
         box.add_widget(save_btn)
 
-        popup = Popup(title="Agent Credentials", content=box, size_hint=(0.88, 0.45))
+        popup = Popup(title="App Configuration", content=box, size_hint=(0.9, 0.8))
+        
+        # State tracker
+        state = {"role": current_role}
+        
+        def set_host(inst):
+            state["role"] = "Host"
+            host_btn.background_color = (0.2, 0.7, 0.3, 1)
+            client_btn.background_color = (0.3, 0.3, 0.3, 1)
+            
+        def set_client(inst):
+            state["role"] = "Client"
+            client_btn.background_color = (0.2, 0.7, 0.3, 1)
+            host_btn.background_color = (0.3, 0.3, 0.3, 1)
+            
+        host_btn.bind(on_press=set_host)
+        client_btn.bind(on_press=set_client)
+        
         def _save(inst):
             self.agents[self.active_agent_name]["api_key"] = key_input.text.strip()
-            self.save_agents()
+            self.app_config["role"] = state["role"]
+            self.app_config["host_ip"] = ip_input.text.strip()
+            self.save_data()
             popup.dismiss()
+            
         save_btn.bind(on_press=_save)
         popup.open()
 
