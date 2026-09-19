@@ -28,3 +28,6 @@ log_level = 2
 warn_on_root = 1
 
 p4a.branch = master
+# Change this line in your buildozer.spec
+orientation = all
+
