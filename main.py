@@ -20,7 +20,6 @@ from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
 from kivy.uix.label import Label
-from kivy.uix.gridlayout import GridLayout
 from kivy.uix.widget import Widget
 from kivy.uix.popup import Popup
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
@@ -92,7 +91,8 @@ class MeshHandler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.end_headers()
 
-    def log_message(self, format, *args): return
+    def log_message(self, format, *args): 
+        return
 
 def start_mesh_server():
     try:
@@ -101,7 +101,8 @@ def start_mesh_server():
     except Exception:
         pass
 
-# --- UI COMPONENTS ---
+
+# --- UI BASE COMPONENTS ---
 
 class RoundedButton(Button):
     def __init__(self, bg_color=(0.14, 0.15, 0.18, 1), radius=12, **kwargs):
@@ -128,7 +129,7 @@ class RoundedInput(TextInput):
         self.foreground_color = (1, 1, 1, 1)
         self.cursor_color = (1, 1, 1, 1)
         with self.canvas.before:
-            Color(0.12, 0.12, 0.14, 1) # Gemini's deep input bar color
+            Color(0.12, 0.12, 0.14, 1)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(25)])
         self.bind(pos=self._update_rect, size=self._update_rect)
 
@@ -136,37 +137,47 @@ class RoundedInput(TextInput):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-# --- SLIDING SIDEBAR (NAVIGATION DRAWER) ---
+
+# --- SLIDING SIDEBAR (DRAWER) ---
 
 class NavigationDrawer(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.size_hint = (1, 1)
         self.is_open = False
+        self.disabled = True
+        self.opacity = 0
+        
+        self.panel_width = dp(280)
         
         # Dimming Overlay
-        self.overlay = Button(background_normal='', background_color=(0,0,0,0), size_hint=(1, 1))
-        self.overlay.bind(on_press=self.close)
+        self.overlay = Button(background_normal='', background_color=(0, 0, 0, 0), size_hint=(1, 1))
+        self.overlay.bind(on_press=lambda x: self.close())
         self.add_widget(self.overlay)
         
-        # Sidebar Panel
-        self.panel_width = dp(280)
-        self.panel = BoxLayout(orientation='vertical', size_hint=(None, 1), width=self.panel_width, pos=( -self.panel_width, 0 ))
+        # Slide Panel
+        self.panel = BoxLayout(orientation='vertical', size_hint=(None, 1), width=self.panel_width)
+        self.panel.x = -self.panel_width
         
         with self.panel.canvas.before:
-            Color(0.11, 0.12, 0.13, 1) # Dark Gemini Sidebar Color
+            Color(0.11, 0.12, 0.13, 1)
             self.panel_bg = RoundedRectangle(pos=self.panel.pos, size=self.panel.size)
         self.panel.bind(pos=self._update_bg, size=self._update_bg)
 
-        # Sidebar Content
         self.panel.add_widget(Widget(size_hint_y=None, height=dp(20)))
         
-        new_chat_btn = RoundedButton(text="+  New chat", size_hint=(None, None), width=self.panel_width - dp(32), height=dp(45), pos_hint={'center_x': 0.5}, bg_color=(0.16, 0.17, 0.19, 1), bold=True)
-        new_chat_btn.bind(on_press=lambda x: App.get_running_app().go_home())
+        new_chat_btn = RoundedButton(
+            text="+  New chat", size_hint=(None, None), width=self.panel_width - dp(32),
+            height=dp(45), pos_hint={'center_x': 0.5}, bg_color=(0.16, 0.17, 0.19, 1), bold=True
+        )
+        new_chat_btn.bind(on_press=lambda x: (self.close(), App.get_running_app().go_home()))
         self.panel.add_widget(new_chat_btn)
         
         self.panel.add_widget(Widget(size_hint_y=None, height=dp(20)))
-        self.panel.add_widget(Label(text="    Recent", size_hint_y=None, height=dp(20), halign='left', text_size=(self.panel_width, None), color=(0.7, 0.7, 0.7, 1), font_size=sp(12), bold=True))
+        self.panel.add_widget(Label(
+            text="    Recent", size_hint_y=None, height=dp(20), halign='left',
+            text_size=(self.panel_width, None), color=(0.7, 0.7, 0.7, 1), font_size=sp(12), bold=True
+        ))
         
         self.recent_list = BoxLayout(orientation='vertical', size_hint_y=None)
         self.recent_list.bind(minimum_height=self.recent_list.setter('height'))
@@ -175,13 +186,15 @@ class NavigationDrawer(FloatLayout):
         scroll.add_widget(self.recent_list)
         self.panel.add_widget(scroll)
         
-        # Settings Bottom Pin
-        settings_btn = Button(text="⚙  Settings", size_hint_y=None, height=dp(50), background_normal='', background_color=(0,0,0,0), halign='left', text_size=(self.panel_width-dp(40), None), color=(0.9, 0.9, 0.9, 1))
+        settings_btn = Button(
+            text="⚙  Settings", size_hint_y=None, height=dp(50), background_normal='',
+            background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(40), None),
+            color=(0.9, 0.9, 0.9, 1)
+        )
         settings_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
         self.panel.add_widget(settings_btn)
 
         self.add_widget(self.panel)
-        self.pos_hint = {'x': -1} # Start completely hidden
 
     def _update_bg(self, *args):
         self.panel_bg.pos = self.panel.pos
@@ -191,7 +204,11 @@ class NavigationDrawer(FloatLayout):
         self.recent_list.clear_widgets()
         app = App.get_running_app()
         for name in app.agents.keys():
-            btn = Button(text=f"  {name}", size_hint_y=None, height=dp(45), background_normal='', background_color=(0,0,0,0), halign='left', text_size=(self.panel_width-dp(20), None), color=(0.8, 0.8, 0.8, 1))
+            btn = Button(
+                text=f"  {name}", size_hint_y=None, height=dp(45), background_normal='',
+                background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(20), None),
+                color=(0.8, 0.8, 0.8, 1)
+            )
             btn.bind(on_press=lambda inst, n=name: self.open_chat_and_close(n))
             self.recent_list.add_widget(btn)
 
@@ -207,80 +224,27 @@ class NavigationDrawer(FloatLayout):
 
     def open(self, *args):
         self.refresh_recent()
-        self.pos_hint = {'x': 0}
-        self.overlay.background_color = (0, 0, 0, 0.6)
-        anim = Animation(pos=(0, 0), d=0.25, t='out_quad')
+        self.disabled = False
+        self.opacity = 1
+        anim = Animation(x=0, d=0.22, t='out_quad')
+        anim_overlay = Animation(background_color=(0, 0, 0, 0.55), d=0.22)
         anim.start(self.panel)
+        anim_overlay.start(self.overlay)
         self.is_open = True
 
     def close(self, *args):
-        anim = Animation(pos=(-self.panel_width, 0), d=0.2, t='in_quad')
-        anim.bind(on_complete=self._hide_completely)
+        anim = Animation(x=-self.panel_width, d=0.18, t='in_quad')
+        anim_overlay = Animation(background_color=(0, 0, 0, 0), d=0.18)
+        def _on_finish(*a):
+            self.disabled = True
+            self.opacity = 0
+            self.is_open = False
+        anim.bind(on_complete=_on_finish)
         anim.start(self.panel)
-        self.overlay.background_color = (0, 0, 0, 0)
-        self.is_open = False
-        
-    def _hide_completely(self, *args):
-        self.pos_hint = {'x': -1}
+        anim_overlay.start(self.overlay)
 
-# --- SCREENS ---
 
-class HomeScreen(Screen):
-    def on_pre_enter(self):
-        self.clear_widgets()
-        app = App.get_running_app()
-        main_layout = BoxLayout(orientation="vertical", padding=[dp(20), dp(20), dp(20), dp(10)], spacing=dp(15))
-
-        # Top Bar
-        top_bar = BoxLayout(size_hint_y=None, height=dp(40))
-        hamburger = Button(text="≡", size_hint_x=None, width=dp(50), background_normal='', background_color=(0,0,0,0), font_size=sp(28), color=(0.8, 0.8, 0.8, 1))
-        hamburger.bind(on_press=app.root_layout.sidebar.toggle)
-        
-        top_bar.add_widget(hamburger)
-        top_bar.add_widget(Label(text="Gemini", font_size=sp(18), bold=True, halign="left", color=(0.9, 0.9, 0.9, 1)))
-        main_layout.add_widget(top_bar)
-        main_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
-
-        # Hero Greeting
-        main_layout.add_widget(Label(text="Hello, Balaji", font_size=sp(38), bold=True, halign="center", color=(0.66, 0.78, 0.98, 1), size_hint_y=None, height=dp(50)))
-        main_layout.add_widget(Label(text="How can I help you today?", font_size=sp(24), bold=True, color=(0.4, 0.4, 0.45, 1), halign="center", size_hint_y=None, height=dp(30)))
-        
-        main_layout.add_widget(Widget(size_hint_y=None, height=dp(20)))
-
-        # Gemini-style horizontal suggestion chips
-        chips_box = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(100), spacing=dp(15))
-        for agent_name in list(app.agents.keys())[:2]:  # Show first 2 agents as suggestions
-            card = RoundedButton(text=f"{agent_name}\n[size=12sp]Ready to chat[/size]", markup=True, bg_color=(0.12, 0.13, 0.15, 1), color=(0.85, 0.85, 0.85, 1), font_size=sp(14), bold=True)
-            card.bind(on_press=lambda inst, name=agent_name: app.open_chat(name))
-            chips_box.add_widget(card)
-
-        main_layout.add_widget(chips_box)
-        main_layout.add_widget(Widget(size_hint_y=1)) # Push input to bottom
-
-        # Floating Bottom Prompt Bar
-        input_box = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        self.prompt_input = RoundedInput(hint_text="Ask Gemini...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
-        self.prompt_input.bind(on_text_validate=self.send_from_home)
-        
-        send_btn = RoundedButton(text="➤", bg_color=(0.9, 0.9, 0.9, 1), color=(0.1, 0.1, 0.1, 1), size_hint_x=None, width=dp(55), radius=27, bold=True, font_size=sp(18))
-        send_btn.bind(on_press=self.send_from_home)
-        
-        input_box.add_widget(self.prompt_input)
-        input_box.add_widget(send_btn)
-        
-        main_layout.add_widget(input_box)
-        self.add_widget(main_layout)
-
-    def send_from_home(self, instance):
-        prompt = self.prompt_input.text.strip()
-        if prompt:
-            app = App.get_running_app()
-            app.open_chat(app.active_agent_name)
-            chat_screen = app.root_layout.sm.get_screen("chat")
-            chat_screen.prompt_input.text = prompt
-            chat_screen.send_prompt(None)
-            self.prompt_input.text = ""
-
+# --- CHAT BUBBLE ---
 
 class ChatBubble(BoxLayout):
     def __init__(self, text="", is_user=False, on_handoff=None, **kwargs):
@@ -303,16 +267,27 @@ class ChatBubble(BoxLayout):
         self.bind(pos=self._update_rect, size=self._update_rect)
 
         if not is_user:
-            self.add_widget(Label(text=f"✦ {sender_title}", size_hint_y=None, height=dp(18), font_size=sp(12), bold=True, color=sender_color, halign="left", text_size=(Window.width - dp(60), None)))
+            self.title_lbl = Label(
+                text=f"✦ {sender_title}", size_hint_y=None, height=dp(18),
+                font_size=sp(12), bold=True, color=sender_color, halign="left"
+            )
+            self.title_lbl.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
+            self.add_widget(self.title_lbl)
 
-        self.msg_label = Label(text=text, size_hint_y=None, font_size=sp(15), color=(0.95, 0.95, 0.95, 1), halign="left", valign="top")
-        self.msg_label.bind(width=lambda *x: self.msg_label.setter("text_size")(self.msg_label, (self.msg_label.width, None)))
+        # Pre-instantiate actions_box to eliminate any AttributeError during _adjust_height
+        self.actions_box = BoxLayout(size_hint_y=None, height=0, spacing=dp(8))
+
+        self.msg_label = Label(
+            text=text, size_hint_y=None, font_size=sp(15),
+            color=(0.95, 0.95, 0.95, 1), halign="left", valign="top"
+        )
+        self.msg_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
         self.msg_label.bind(texture_size=lambda *x: self._adjust_height())
         self.add_widget(self.msg_label)
 
-        self.actions_box = BoxLayout(size_hint_y=None, height=dp(34), spacing=dp(8))
         self.add_widget(self.actions_box)
         self._refresh_actions()
+        self._adjust_height()
 
     def append_chunk(self, chunk):
         self.raw_text += chunk
@@ -324,6 +299,8 @@ class ChatBubble(BoxLayout):
         self._adjust_height()
 
     def _refresh_actions(self):
+        if not hasattr(self, 'actions_box'):
+            return
         self.actions_box.clear_widgets()
         if self.is_user or not self.raw_text.strip():
             self.actions_box.height = 0
@@ -333,20 +310,102 @@ class ChatBubble(BoxLayout):
         urls = re.findall(r"https?://[^\s<>\"']+", self.raw_text)
         if urls:
             first_url = urls[0]
-            cloud_btn = RoundedButton(text="🌐 Open Link", size_hint_x=None, width=dp(120), bg_color=(0.15, 0.35, 0.25, 1), font_size=sp(11), bold=True)
+            cloud_btn = RoundedButton(
+                text="🌐 Open Link", size_hint_x=None, width=dp(120),
+                bg_color=(0.15, 0.35, 0.25, 1), font_size=sp(11), bold=True
+            )
             cloud_btn.bind(on_press=lambda inst, u=first_url: webbrowser.open(u))
             self.actions_box.add_widget(cloud_btn)
+            has_actions = True
+
+        if self.on_handoff:
+            handoff_btn = RoundedButton(
+                text="✦ Pass to Agent", size_hint_x=None, width=dp(120),
+                bg_color=(0.2, 0.25, 0.35, 1), font_size=sp(11)
+            )
+            handoff_btn.bind(on_press=lambda inst: self.on_handoff(self.raw_text))
+            self.actions_box.add_widget(handoff_btn)
             has_actions = True
 
         self.actions_box.height = dp(34) if has_actions else 0
 
     def _adjust_height(self):
-        self.msg_label.height = self.msg_label.texture_size[1]
-        self.height = self.msg_label.height + (dp(40) if not self.is_user else dp(20)) + self.actions_box.height
+        if hasattr(self, 'msg_label') and hasattr(self, 'actions_box'):
+            self.msg_label.height = self.msg_label.texture_size[1]
+            extra = dp(40) if not self.is_user else dp(16)
+            self.height = self.msg_label.height + extra + self.actions_box.height
 
     def _update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
+
+
+# --- SCREENS ---
+
+class HomeScreen(Screen):
+    def on_pre_enter(self):
+        self.clear_widgets()
+        app = App.get_running_app()
+        main_layout = BoxLayout(orientation="vertical", padding=[dp(20), dp(20), dp(20), dp(10)], spacing=dp(15))
+
+        top_bar = BoxLayout(size_hint_y=None, height=dp(40))
+        hamburger = Button(
+            text="≡", size_hint_x=None, width=dp(50), background_normal='',
+            background_color=(0, 0, 0, 0), font_size=sp(28), color=(0.8, 0.8, 0.8, 1)
+        )
+        hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
+        
+        top_bar.add_widget(hamburger)
+        top_bar.add_widget(Label(text="Gemini", font_size=sp(18), bold=True, halign="left", color=(0.9, 0.9, 0.9, 1)))
+        main_layout.add_widget(top_bar)
+        main_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
+
+        main_layout.add_widget(Label(
+            text="Hello, Balaji", font_size=sp(38), bold=True, halign="center",
+            color=(0.66, 0.78, 0.98, 1), size_hint_y=None, height=dp(50)
+        ))
+        main_layout.add_widget(Label(
+            text="How can I help you today?", font_size=sp(24), bold=True,
+            color=(0.4, 0.4, 0.45, 1), halign="center", size_hint_y=None, height=dp(30)
+        ))
+        
+        main_layout.add_widget(Widget(size_hint_y=None, height=dp(20)))
+
+        chips_box = BoxLayout(orientation="horizontal", size_hint_y=None, height=dp(100), spacing=dp(15))
+        for agent_name in list(app.agents.keys())[:2]:
+            card = RoundedButton(
+                text=f"{agent_name}\n[size=12sp]Ready to chat[/size]", markup=True,
+                bg_color=(0.12, 0.13, 0.15, 1), color=(0.85, 0.85, 0.85, 1),
+                font_size=sp(14), bold=True, size_hint_x=0.5
+            )
+            card.bind(on_press=lambda inst, name=agent_name: app.open_chat(name))
+            chips_box.add_widget(card)
+
+        main_layout.add_widget(chips_box)
+        main_layout.add_widget(Widget(size_hint_y=1))
+
+        input_box = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
+        self.prompt_input = RoundedInput(hint_text="Ask Gemini...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
+        self.prompt_input.bind(on_text_validate=self.send_from_home)
+        
+        send_btn = RoundedButton(
+            text="➤", bg_color=(0.9, 0.9, 0.9, 1), color=(0.1, 0.1, 0.1, 1),
+            size_hint_x=None, width=dp(55), radius=27, bold=True, font_size=sp(18)
+        )
+        send_btn.bind(on_press=self.send_from_home)
+        
+        input_box.add_widget(self.prompt_input)
+        input_box.add_widget(send_btn)
+        
+        main_layout.add_widget(input_box)
+        self.add_widget(main_layout)
+
+    def send_from_home(self, instance):
+        prompt = self.prompt_input.text.strip()
+        if prompt:
+            app = App.get_running_app()
+            self.prompt_input.text = ""
+            app.open_chat_with_prompt(prompt)
 
 
 class ChatScreen(Screen):
@@ -356,8 +415,11 @@ class ChatScreen(Screen):
         self.layout = BoxLayout(orientation="vertical", padding=[dp(10), dp(10), dp(10), dp(10)], spacing=dp(10))
 
         top_bar = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
-        hamburger = Button(text="≡", size_hint_x=None, width=dp(50), background_normal='', background_color=(0,0,0,0), font_size=sp(28), color=(0.8, 0.8, 0.8, 1))
-        hamburger.bind(on_press=lambda x: App.get_running_app().root_layout.sidebar.toggle())
+        hamburger = Button(
+            text="≡", size_hint_x=None, width=dp(50), background_normal='',
+            background_color=(0, 0, 0, 0), font_size=sp(28), color=(0.8, 0.8, 0.8, 1)
+        )
+        hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
         top_bar.add_widget(hamburger)
 
         self.title_label = Label(text="Chat", bold=True, font_size=sp(16), halign="left")
@@ -377,7 +439,11 @@ class ChatScreen(Screen):
         self.prompt_input.bind(on_text_validate=self.send_prompt)
         bottom_bar.add_widget(self.prompt_input)
 
-        self.send_btn = RoundedButton(text="➤", size_hint_x=None, width=dp(55), radius=27, bg_color=(0.9, 0.9, 0.9, 1), color=(0.1, 0.1, 0.1, 1), font_size=sp(18), bold=True)
+        self.send_btn = RoundedButton(
+            text="➤", size_hint_x=None, width=dp(55), radius=27,
+            bg_color=(0.9, 0.9, 0.9, 1), color=(0.1, 0.1, 0.1, 1),
+            font_size=sp(18), bold=True
+        )
         self.send_btn.bind(on_press=self.send_prompt)
         bottom_bar.add_widget(self.send_btn)
 
@@ -401,12 +467,12 @@ class ChatScreen(Screen):
 
     def send_prompt(self, instance):
         prompt = self.prompt_input.text.strip()
-        if not prompt: return
+        if not prompt: 
+            return
 
         app = App.get_running_app()
         role = app.app_config.get("role", "Host")
         
-        # Phone Satellite Mode
         if role == "Client":
             target_ip = app.app_config.get("host_ip", "").strip()
             if not target_ip:
@@ -437,7 +503,6 @@ class ChatScreen(Screen):
             threading.Thread(target=send_to_host, daemon=True).start()
             return
 
-        # Tablet Host Mode
         agent = app.agents.get(app.active_agent_name, {})
         if not agent.get("api_key", "").strip():
             self.chat_feed.add_widget(ChatBubble(text="⚠️ No API key configured in Settings.", is_user=False))
@@ -454,6 +519,51 @@ class ChatScreen(Screen):
         threading.Thread(target=app.stream_ai_response, args=(prompt, agent, self.current_stream_bubble), daemon=True).start()
 
 
+class CreateAgentScreen(Screen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.layout = BoxLayout(orientation="vertical", padding=dp(20), spacing=dp(15))
+
+        title = Label(text="Create Persona", size_hint_y=None, height=dp(36), font_size=sp(20), bold=True, halign="left")
+        title.bind(width=lambda *x: title.setter("text_size")(title, (title.width, None)))
+        self.layout.add_widget(title)
+
+        self.name_input = RoundedInput(hint_text="Agent Name...", size_hint_y=None, height=dp(46), multiline=False, font_size=sp(14), padding=[dp(15), dp(12), dp(15), dp(12)])
+        self.layout.add_widget(self.name_input)
+
+        self.prompt_input = RoundedInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(14), padding=[dp(15), dp(15), dp(15), dp(15)])
+        self.layout.add_widget(self.prompt_input)
+
+        self.key_input = RoundedInput(hint_text="Dedicated API Key (sk-...)", size_hint_y=None, height=dp(46), multiline=False, password=True, font_size=sp(14), padding=[dp(15), dp(12), dp(15), dp(12)])
+        self.layout.add_widget(self.key_input)
+
+        btn_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
+        cancel_btn = RoundedButton(text="Cancel", bg_color=(0.2, 0.2, 0.2, 1))
+        cancel_btn.bind(on_press=lambda x: App.get_running_app().go_home())
+        btn_box.add_widget(cancel_btn)
+
+        save_btn = RoundedButton(text="Save", bg_color=(0.2, 0.7, 0.3, 1), bold=True)
+        save_btn.bind(on_press=self.save_agent)
+        btn_box.add_widget(save_btn)
+
+        self.layout.add_widget(btn_box)
+        self.add_widget(self.layout)
+
+    def save_agent(self, instance):
+        name = self.name_input.text.strip()
+        prompt = self.prompt_input.text.strip()
+        key = self.key_input.text.strip()
+
+        if name:
+            app = App.get_running_app()
+            app.agents[name] = {"model": "gpt-4o-mini", "api_key": key, "system_prompt": prompt, "chips": ["Refine Instructions"]}
+            app.save_data()
+            self.name_input.text = ""
+            self.prompt_input.text = ""
+            self.key_input.text = ""
+            app.go_home()
+
+
 # --- ROOT ORCHESTRATION ---
 
 class RootLayout(FloatLayout):
@@ -462,6 +572,7 @@ class RootLayout(FloatLayout):
         self.sm = ScreenManager(transition=SlideTransition())
         self.sm.add_widget(HomeScreen(name="home"))
         self.sm.add_widget(ChatScreen(name="chat"))
+        self.sm.add_widget(CreateAgentScreen(name="create"))
         
         self.sidebar = NavigationDrawer()
         
@@ -486,12 +597,16 @@ class AIShellApp(App):
         self.root_layout = RootLayout()
         return self.root_layout
 
+    def toggle_sidebar(self):
+        if hasattr(self, 'root_layout') and self.root_layout and hasattr(self.root_layout, 'sidebar'):
+            self.root_layout.sidebar.toggle()
+
     def on_keyboard(self, window, key, scancode, codepoint, modifier):
         if key == 27:
-            if self.root_layout.sidebar.is_open:
+            if hasattr(self, 'root_layout') and self.root_layout.sidebar.is_open:
                 self.root_layout.sidebar.close()
                 return True
-            if self.root_layout.sm.current != "home":
+            if hasattr(self, 'root_layout') and self.root_layout.sm.current != "home":
                 self.go_home()
                 return True
             return False
@@ -518,8 +633,10 @@ class AIShellApp(App):
 
     def save_data(self):
         try:
-            with open(self.agents_file, "w") as f: json.dump(self.agents, f, indent=2)
-            with open(self.config_file, "w") as f: json.dump(self.app_config, f, indent=2)
+            with open(self.agents_file, "w") as f: 
+                json.dump(self.agents, f, indent=2)
+            with open(self.config_file, "w") as f: 
+                json.dump(self.app_config, f, indent=2)
         except Exception:
             pass
 
@@ -532,6 +649,14 @@ class AIShellApp(App):
         self.root_layout.sm.transition.direction = "left"
         self.root_layout.sm.current = "chat"
 
+    def open_chat_with_prompt(self, prompt):
+        self.open_chat(self.active_agent_name)
+        def _trigger(dt):
+            chat_screen = self.root_layout.sm.get_screen("chat")
+            chat_screen.prompt_input.text = prompt
+            chat_screen.send_prompt(None)
+        Clock.schedule_once(_trigger, 0.05)
+
     def record_message(self, text, is_user=False):
         if self.active_agent_name not in self.chat_histories:
             self.chat_histories[self.active_agent_name] = []
@@ -541,7 +666,8 @@ class AIShellApp(App):
         headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
         history = self.chat_histories.get(self.active_agent_name, [])[-6:]
         messages = [{"role": "system", "content": agent.get("system_prompt", "")}]
-        for item in history: messages.append({"role": "user" if item["is_user"] else "assistant", "content": item["text"]})
+        for item in history: 
+            messages.append({"role": "user" if item["is_user"] else "assistant", "content": item["text"]})
 
         payload = {"model": agent.get("model", "gpt-4o-mini"), "messages": messages, "temperature": 0.7, "stream": True}
         accumulated = []
@@ -556,7 +682,8 @@ class AIShellApp(App):
                     decoded = line.decode("utf-8").strip()
                     if decoded.startswith("data: "):
                         data_str = decoded[6:]
-                        if data_str == "[DONE]": break
+                        if data_str == "[DONE]": 
+                            break
                         try:
                             content_piece = json.loads(data_str)["choices"][0]["delta"].get("content", "")
                             if content_piece:
@@ -575,29 +702,43 @@ class AIShellApp(App):
             Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
 
     def open_settings_modal(self):
-        if self.root_layout.sidebar.is_open:
+        if hasattr(self, 'root_layout') and self.root_layout.sidebar.is_open:
             self.root_layout.sidebar.close()
             
-        current_agent = self.agents[self.active_agent_name]
+        current_agent = self.agents.get(self.active_agent_name, {})
         box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
         
         box.add_widget(Label(text="Cloud API Key", size_hint_y=None, height=dp(20), font_size=sp(12)))
-        key_input = RoundedInput(text=current_agent.get("api_key", ""), hint_text="sk-...", multiline=False, password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)])
+        key_input = RoundedInput(
+            text=current_agent.get("api_key", ""), hint_text="sk-...", multiline=False,
+            password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)]
+        )
         box.add_widget(key_input)
 
         box.add_widget(Label(text="Device Role", size_hint_y=None, height=dp(20), font_size=sp(12)))
         role_box = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
         current_role = self.app_config.get("role", "Host")
         
-        host_btn = RoundedButton(text="Tablet (Host)", bg_color=(0.2, 0.7, 0.3, 1) if current_role == "Host" else (0.3, 0.3, 0.3, 1), bold=True)
-        client_btn = RoundedButton(text="Phone (Client)", bg_color=(0.2, 0.7, 0.3, 1) if current_role == "Client" else (0.3, 0.3, 0.3, 1), bold=True)
+        host_btn = RoundedButton(
+            text="Tablet (Host)",
+            bg_color=(0.2, 0.7, 0.3, 1) if current_role == "Host" else (0.3, 0.3, 0.3, 1),
+            bold=True
+        )
+        client_btn = RoundedButton(
+            text="Phone (Client)",
+            bg_color=(0.2, 0.7, 0.3, 1) if current_role == "Client" else (0.3, 0.3, 0.3, 1),
+            bold=True
+        )
         
         role_box.add_widget(host_btn)
         role_box.add_widget(client_btn)
         box.add_widget(role_box)
 
         box.add_widget(Label(text=f"Host IP Address (My IP: {get_local_ip()})", size_hint_y=None, height=dp(20), font_size=sp(12)))
-        ip_input = RoundedInput(text=self.app_config.get("host_ip", ""), hint_text="e.g. 192.168.1.5", multiline=False, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)])
+        ip_input = RoundedInput(
+            text=self.app_config.get("host_ip", ""), hint_text="e.g. 192.168.1.5",
+            multiline=False, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)]
+        )
         box.add_widget(ip_input)
 
         save_btn = RoundedButton(text="Save Settings", size_hint_y=None, height=dp(46), bg_color=(0.2, 0.45, 0.9, 1), bold=True)
@@ -608,19 +749,24 @@ class AIShellApp(App):
         
         def set_host(inst):
             state["role"] = "Host"
-            host_btn.bg_color = (0.2, 0.7, 0.3, 1); host_btn._update_rect()
-            client_btn.bg_color = (0.3, 0.3, 0.3, 1); client_btn._update_rect()
+            host_btn.bg_color = (0.2, 0.7, 0.3, 1)
+            client_btn.bg_color = (0.3, 0.3, 0.3, 1)
+            host_btn._update_rect()
+            client_btn._update_rect()
             
         def set_client(inst):
             state["role"] = "Client"
-            client_btn.bg_color = (0.2, 0.7, 0.3, 1); client_btn._update_rect()
-            host_btn.bg_color = (0.3, 0.3, 0.3, 1); host_btn._update_rect()
+            client_btn.bg_color = (0.2, 0.7, 0.3, 1)
+            host_btn.bg_color = (0.3, 0.3, 0.3, 1)
+            client_btn._update_rect()
+            host_btn._update_rect()
             
         host_btn.bind(on_press=set_host)
         client_btn.bind(on_press=set_client)
         
         def _save(inst):
-            self.agents[self.active_agent_name]["api_key"] = key_input.text.strip()
+            if self.active_agent_name in self.agents:
+                self.agents[self.active_agent_name]["api_key"] = key_input.text.strip()
             self.app_config["role"] = state["role"]
             self.app_config["host_ip"] = ip_input.text.strip()
             self.save_data()
