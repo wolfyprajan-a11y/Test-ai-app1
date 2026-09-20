@@ -6,6 +6,9 @@ import time
 import threading
 import socket
 import webbrowser
+import io
+import traceback
+from contextlib import redirect_stdout
 from pathlib import Path
 import requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -32,7 +35,6 @@ from kivy.animation import Animation
 
 API_URL = "https://api.openai.com/v1/chat/completions"
 
-# Cleaned Agent Names (Removed Android-incompatible symbols)
 DEFAULT_AGENTS = {
     "Game Architect": {
         "model": "gpt-4o-mini",
@@ -52,11 +54,11 @@ DEFAULT_AGENTS = {
         "system_prompt": "You are a Minecraft modder. Write custom loot tables.",
         "chips": ["Resolve Forge Conflict", "Recipe Script"]
     },
-    "Photo & Visuals": {
+    "Code Interpreter": {
         "model": "gpt-4o-mini",
         "api_key": "",
-        "system_prompt": "You are a master visual prompt engineer.",
-        "chips": ["Cinematic Asset", "Environment Prompt"]
+        "system_prompt": "You are an advanced Python execution agent. When asked to solve a problem, always write and execute Python code to find the exact answer instead of guessing.",
+        "chips": ["Calculate Pi to 50 digits", "List files in my app directory"]
     }
 }
 
@@ -111,7 +113,7 @@ class RoundedButton(Button):
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_color = (0, 0, 0, 0)
-        self.color = (0.1, 0.1, 0.1, 1) # Dark text
+        self.color = (0.1, 0.1, 0.1, 1)
         self.bg_color = bg_color
         self.radius = radius
         with self.canvas.before:
@@ -130,7 +132,7 @@ class RoundedInput(TextInput):
         self.background_active = ''
         self.background_color = (0, 0, 0, 0)
         self.foreground_color = (0.1, 0.1, 0.1, 1)
-        self.hint_text_color = (0.5, 0.5, 0.5, 1) # Fixed placeholder visibility
+        self.hint_text_color = (0.5, 0.5, 0.5, 1)
         self.cursor_color = (0.1, 0.4, 0.8, 1)
         self.write_tab = False
         with self.canvas.before:
@@ -153,13 +155,12 @@ class NavigationDrawer(FloatLayout):
         
         self.panel_width = dp(280)
         
-        # FIX: Move overlay offscreen (pos_hint x: 1) so it doesn't block touches when closed
         self.overlay = Button(background_normal='', background_color=(0, 0, 0, 0), size_hint=(1, 1), pos_hint={'x': 1})
         self.overlay.bind(on_press=lambda x: self.close())
         self.add_widget(self.overlay)
         
         self.panel = BoxLayout(orientation='vertical', size_hint=(None, 1), width=self.panel_width)
-        self.panel.x = -self.panel_width
+        self.panel.pos = (-self.panel_width, 0)
         
         with self.panel.canvas.before:
             Color(1, 1, 1, 1)
@@ -205,7 +206,7 @@ class NavigationDrawer(FloatLayout):
 
     def _reposition_panel(self, *args):
         if not self.is_open:
-            self.panel.x = -self.panel_width
+            self.panel.pos = (-self.panel_width, 0)
 
     def refresh_recent(self):
         self.recent_list.clear_widgets()
@@ -232,18 +233,18 @@ class NavigationDrawer(FloatLayout):
 
     def open(self, *args):
         self.refresh_recent()
-        self.overlay.pos_hint = {'x': 0} # Bring overlay on screen
-        anim = Animation(x=0, d=0.25, t='out_quad')
+        self.overlay.pos_hint = {'x': 0}
+        anim = Animation(pos=(0, 0), d=0.25, t='out_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0.4), d=0.25)
         anim.start(self.panel)
         anim_overlay.start(self.overlay)
         self.is_open = True
 
     def close(self, *args):
-        anim = Animation(x=-self.panel_width, d=0.2, t='in_quad')
+        anim = Animation(pos=(-self.panel_width, 0), d=0.2, t='in_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0), d=0.2)
         def _on_finish(*a):
-            self.overlay.pos_hint = {'x': 1} # Hide overlay off screen
+            self.overlay.pos_hint = {'x': 1}
             self.is_open = False
         anim.bind(on_complete=_on_finish)
         anim.start(self.panel)
@@ -251,26 +252,37 @@ class NavigationDrawer(FloatLayout):
 
 
 class ChatBubble(BoxLayout):
-    def __init__(self, text="", is_user=False, on_handoff=None, **kwargs):
+    def __init__(self, text="", is_user=False, is_system=False, **kwargs):
         super().__init__(**kwargs)
         self.orientation = "vertical"
         self.size_hint_y = None
         self.padding = [dp(16), dp(12), dp(16), dp(12)]
         self.spacing = dp(6)
         self.is_user = is_user
-        self.on_handoff = on_handoff
         self.raw_text = text
 
-        bg_color = (0.85, 0.9, 0.98, 1) if is_user else (1, 1, 1, 1)
-        sender_title = "You" if is_user else "Gemini"
-        sender_color = (0.4, 0.4, 0.4, 1) if is_user else (0.1, 0.4, 0.8, 1)
+        if is_system:
+            bg_color = (0.2, 0.2, 0.2, 1)
+            sender_title = "System Run"
+            sender_color = (0.9, 0.9, 0.9, 1)
+            text_color = (0.8, 0.9, 0.8, 1) # Hacker green output
+        elif is_user:
+            bg_color = (0.85, 0.9, 0.98, 1)
+            sender_title = "You"
+            sender_color = (0.4, 0.4, 0.4, 1)
+            text_color = (0.1, 0.1, 0.1, 1)
+        else:
+            bg_color = (1, 1, 1, 1)
+            sender_title = "Gemini"
+            sender_color = (0.1, 0.4, 0.8, 1)
+            text_color = (0.1, 0.1, 0.1, 1)
 
         with self.canvas.before:
             Color(*bg_color)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(18)])
         self.bind(pos=self._update_rect, size=self._update_rect)
 
-        if not is_user:
+        if not is_user or is_system:
             self.title_lbl = Label(
                 text=sender_title, size_hint_y=None, height=dp(18),
                 font_size=sp(12), bold=True, color=sender_color, halign="left"
@@ -281,8 +293,9 @@ class ChatBubble(BoxLayout):
         self.actions_box = BoxLayout(size_hint_y=None, height=0, spacing=dp(8))
 
         self.msg_label = Label(
-            text=text, size_hint_y=None, font_size=sp(15),
-            color=(0.1, 0.1, 0.1, 1), halign="left", valign="top"
+            text=text, size_hint_y=None, font_size=sp(15) if not is_system else sp(12),
+            color=text_color, halign="left", valign="top",
+            font_name="RobotoMono-Regular" if is_system else "Roboto" # Try monospace if available
         )
         self.msg_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
         self.msg_label.bind(texture_size=lambda *x: self._adjust_height())
@@ -464,7 +477,8 @@ class ChatScreen(BaseWhiteScreen):
         if app.current_session_id and app.current_session_id in app.sessions:
             history = app.sessions[app.current_session_id].get("messages", [])
             for item in history:
-                self.chat_feed.add_widget(ChatBubble(text=item["text"], is_user=item["is_user"]))
+                is_sys = item.get("is_system", False)
+                self.chat_feed.add_widget(ChatBubble(text=item["text"], is_user=item["is_user"], is_system=is_sys))
         else:
             self.chat_feed.add_widget(ChatBubble(text=f"Connected to {app.active_agent_name}.", is_user=False))
 
@@ -525,7 +539,7 @@ class ChatScreen(BaseWhiteScreen):
         self.current_stream_bubble = ChatBubble(text="", is_user=False)
         self.chat_feed.add_widget(self.current_stream_bubble)
         Clock.schedule_once(lambda dt: self.scroll_to_bottom(), 0.05)
-        threading.Thread(target=app.stream_ai_response, args=(prompt, agent, self.current_stream_bubble), daemon=True).start()
+        threading.Thread(target=app.stream_ai_response, args=(agent, self.current_stream_bubble), daemon=True).start()
 
 
 class CreateAgentScreen(BaseWhiteScreen):
@@ -573,7 +587,7 @@ class CreateAgentScreen(BaseWhiteScreen):
             app.go_home()
 
 
-# --- ROOT ORCHESTRATION ---
+# --- ROOT ORCHESTRATION & TOOL EXECUTION ---
 
 class RootLayout(FloatLayout):
     def __init__(self, **kwargs):
@@ -599,6 +613,9 @@ class AIShellApp(App):
 
         self.load_data()
         self.current_session_id = None
+        
+        if not self.agents:
+            self.agents = DEFAULT_AGENTS
         self.active_agent_name = list(self.agents.keys())[0]
 
         threading.Thread(target=start_mesh_server, daemon=True).start()
@@ -622,15 +639,9 @@ class AIShellApp(App):
         return False
 
     def load_data(self):
-        # Strips out any old incompatible symbols from saved configurations
         if self.agents_file.exists():
             try:
-                with open(self.agents_file, "r") as f:
-                    raw_agents = json.load(f)
-                    self.agents = {}
-                    for k, v in raw_agents.items():
-                        clean_k = re.sub(r'[^a-zA-Z0-9 &]', '', k).strip()
-                        self.agents[clean_k] = v
+                with open(self.agents_file, "r") as f: self.agents = json.load(f)
             except: self.agents = DEFAULT_AGENTS
         else: self.agents = DEFAULT_AGENTS
 
@@ -690,19 +701,31 @@ class AIShellApp(App):
             chat_screen.send_prompt(None)
         Clock.schedule_once(_trigger, 0.05)
 
-    def record_message(self, text, is_user=False):
+    def record_message(self, text, is_user=False, is_system=False):
         if self.current_session_id and self.current_session_id in self.sessions:
-            self.sessions[self.current_session_id]["messages"].append({"text": text, "is_user": is_user})
+            self.sessions[self.current_session_id]["messages"].append({"text": text, "is_user": is_user, "is_system": is_system})
             self.save_data()
 
-    def stream_ai_response(self, prompt, agent, bubble_widget):
+    def stream_ai_response(self, agent, bubble_widget):
         headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
         
-        messages = [{"role": "system", "content": agent.get("system_prompt", "")}]
+        # INJECT THE TOOL CAPABILITY TO ALL AGENTS
+        system_base = agent.get("system_prompt", "")
+        tool_instruction = (
+            "\n\n[SYSTEM CAPABILITY: LOCAL CODE EXECUTION]\n"
+            "You have access to a live Python environment on the user's Android device. "
+            "To solve math, analyze data, or read/write files, write Python code wrapped EXACTLY in <execute_python> and </execute_python> tags.\n"
+            "The app will automatically run your code and feed the console stdout/stderr back to you as a System message. You can read/write to the 'app_dir' variable which holds the safe storage path."
+        )
+        
+        messages = [{"role": "system", "content": system_base + tool_instruction}]
+        
         if self.current_session_id and self.current_session_id in self.sessions:
-            history = self.sessions[self.current_session_id]["messages"][-6:]
+            history = self.sessions[self.current_session_id]["messages"][-8:]
             for item in history: 
-                messages.append({"role": "user" if item["is_user"] else "assistant", "content": item["text"]})
+                # If it's a system execution output, we trick the API by feeding it back as a user observation
+                role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
+                messages.append({"role": role, "content": item["text"]})
 
         payload = {"model": agent.get("model", "gpt-4o-mini"), "messages": messages, "temperature": 0.7, "stream": True}
         accumulated = []
@@ -727,12 +750,49 @@ class AIShellApp(App):
                         except Exception:
                             continue
 
-            self.record_message("".join(accumulated), is_user=False)
+            full_text = "".join(accumulated)
+            self.record_message(full_text, is_user=False)
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
+            
+            # --- THE REACT LOOP INTERCEPTOR ---
+            # If the AI generated code, run it!
+            match = re.search(r"<execute_python>(.*?)</execute_python>", full_text, re.DOTALL)
+            if match:
+                code = match.group(1).strip()
+                def run_and_reply():
+                    output = io.StringIO()
+                    try:
+                        with redirect_stdout(output):
+                            exec(code, {"app_dir": str(self.config_dir), "os": os, "sys": sys})
+                        result = output.getvalue()
+                        if not result:
+                            result = "[Executed successfully with no print output]"
+                    except Exception as e:
+                        result = f"[Execution Error]:\n{traceback.format_exc()}"
+                    
+                    # Record the result as a dark system bubble
+                    sys_msg = f"Tool Output:\n{result}"
+                    self.record_message(sys_msg, is_user=False, is_system=True)
+                    
+                    def add_sys_bubble(dt):
+                        sys_bubble = ChatBubble(text=sys_msg, is_user=False, is_system=True)
+                        chat_screen.chat_feed.add_widget(sys_bubble)
+                        
+                        # Trigger the AI again so it can read the result and answer
+                        new_ai_bubble = ChatBubble(text="", is_user=False)
+                        chat_screen.chat_feed.add_widget(new_ai_bubble)
+                        Clock.schedule_once(lambda dt: chat_screen.scroll_to_bottom(), 0.05)
+                        threading.Thread(target=self.stream_ai_response, args=(agent, new_ai_bubble), daemon=True).start()
+                    
+                    Clock.schedule_once(add_sys_bubble)
+
+                threading.Thread(target=run_and_reply, daemon=True).start()
+            else:
+                Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
+                
         except Exception as e:
             Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"Error: {str(e)}"))
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
-        finally:
             Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
 
     def open_settings_modal(self):
