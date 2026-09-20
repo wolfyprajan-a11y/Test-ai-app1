@@ -27,7 +27,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.metrics import dp, sp
-from kivy.graphics import Color, RoundedRectangle, Line
+from kivy.graphics import Color, RoundedRectangle, Rectangle
 from kivy.animation import Animation
 
 API_URL = "https://api.openai.com/v1/chat/completions"
@@ -128,11 +128,11 @@ class RoundedInput(TextInput):
         self.background_normal = ''
         self.background_active = ''
         self.background_color = (0, 0, 0, 0)
-        self.foreground_color = (0.1, 0.1, 0.1, 1) # Dark text for white theme
+        self.foreground_color = (0.1, 0.1, 0.1, 1)
         self.cursor_color = (0.1, 0.4, 0.8, 1)
         self.write_tab = False
         with self.canvas.before:
-            Color(0.92, 0.93, 0.95, 1) # Light grayish-blue input bar
+            Color(0.92, 0.93, 0.95, 1)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(25)])
         self.bind(pos=self._update_rect, size=self._update_rect)
 
@@ -153,23 +153,21 @@ class NavigationDrawer(FloatLayout):
         
         self.panel_width = dp(280)
         
-        # Dimming Overlay
         self.overlay = Button(background_normal='', background_color=(0, 0, 0, 0), size_hint=(1, 1))
         self.overlay.bind(on_press=lambda x: self.close())
         self.add_widget(self.overlay)
         
-        # Slide Panel (White background)
+        # Explicit coordinates instead of X/Y binds for robust Android animations
         self.panel = BoxLayout(orientation='vertical', size_hint=(None, 1), width=self.panel_width)
-        self.panel.x = -self.panel_width # Start completely off screen
+        self.panel.pos = (-self.panel_width, 0)
         
         with self.panel.canvas.before:
-            Color(1, 1, 1, 1) # Pure white sidebar
+            Color(1, 1, 1, 1) # White sidebar
             self.panel_bg = RoundedRectangle(pos=self.panel.pos, size=self.panel.size)
         self.panel.bind(pos=self._update_bg, size=self._update_bg)
 
         self.panel.add_widget(Widget(size_hint_y=None, height=dp(20)))
         
-        # New Chat Button
         new_chat_btn = RoundedButton(
             text="+  New chat", size_hint=(None, None), width=self.panel_width - dp(32),
             height=dp(45), pos_hint={'center_x': 0.5}, bg_color=(0.92, 0.93, 0.95, 1), bold=True
@@ -190,7 +188,6 @@ class NavigationDrawer(FloatLayout):
         scroll.add_widget(self.recent_list)
         self.panel.add_widget(scroll)
         
-        # Settings Button
         settings_btn = Button(
             text="⚙  Settings", size_hint_y=None, height=dp(50), background_normal='',
             background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(40), None),
@@ -200,7 +197,7 @@ class NavigationDrawer(FloatLayout):
         self.panel.add_widget(settings_btn)
 
         self.add_widget(self.panel)
-        self.bind(size=self._reposition_panel) # Keep hidden on rotation
+        self.bind(size=self._reposition_panel)
 
     def _update_bg(self, *args):
         self.panel_bg.pos = self.panel.pos
@@ -208,12 +205,11 @@ class NavigationDrawer(FloatLayout):
 
     def _reposition_panel(self, *args):
         if not self.is_open:
-            self.panel.x = -self.panel_width
+            self.panel.pos = (-self.panel_width, 0)
 
     def refresh_recent(self):
         self.recent_list.clear_widgets()
         app = App.get_running_app()
-        # Sort sessions newest first
         sorted_sessions = sorted(app.sessions.items(), key=lambda item: item[0], reverse=True)
         
         for session_id, session_data in sorted_sessions:
@@ -240,14 +236,15 @@ class NavigationDrawer(FloatLayout):
         self.refresh_recent()
         self.disabled = False
         self.opacity = 1
-        anim = Animation(x=0, d=0.25, t='out_quad')
+        # Use raw pos coordinates for robust animation
+        anim = Animation(pos=(0, 0), d=0.25, t='out_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0.4), d=0.25)
         anim.start(self.panel)
         anim_overlay.start(self.overlay)
         self.is_open = True
 
     def close(self, *args):
-        anim = Animation(x=-self.panel_width, d=0.2, t='in_quad')
+        anim = Animation(pos=(-self.panel_width, 0), d=0.2, t='in_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0), d=0.2)
         def _on_finish(*a):
             self.disabled = True
@@ -257,8 +254,6 @@ class NavigationDrawer(FloatLayout):
         anim.start(self.panel)
         anim_overlay.start(self.overlay)
 
-
-# --- CHAT BUBBLE (LIGHT THEME) ---
 
 class ChatBubble(BoxLayout):
     def __init__(self, text="", is_user=False, on_handoff=None, **kwargs):
@@ -271,7 +266,6 @@ class ChatBubble(BoxLayout):
         self.on_handoff = on_handoff
         self.raw_text = text
 
-        # Light theme bubble colors
         bg_color = (0.85, 0.9, 0.98, 1) if is_user else (1, 1, 1, 1)
         sender_title = "You" if is_user else "Gemini"
         sender_color = (0.4, 0.4, 0.4, 1) if is_user else (0.1, 0.4, 0.8, 1)
@@ -293,7 +287,7 @@ class ChatBubble(BoxLayout):
 
         self.msg_label = Label(
             text=text, size_hint_y=None, font_size=sp(15),
-            color=(0.1, 0.1, 0.1, 1), halign="left", valign="top" # Dark text
+            color=(0.1, 0.1, 0.1, 1), halign="left", valign="top"
         )
         self.msg_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
         self.msg_label.bind(texture_size=lambda *x: self._adjust_height())
@@ -344,9 +338,22 @@ class ChatBubble(BoxLayout):
         self.rect.size = self.size
 
 
-# --- SCREENS (LIGHT THEME) ---
+# --- SCREENS (EXPLICIT WHITE BACKGROUNDS) ---
 
-class HomeScreen(Screen):
+class BaseWhiteScreen(Screen):
+    """Guarantees a white background on Android regardless of Window settings"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        with self.canvas.before:
+            Color(0.96, 0.97, 0.98, 1)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._update_bg, size=self._update_bg)
+
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+class HomeScreen(BaseWhiteScreen):
     def on_pre_enter(self):
         self.clear_widgets()
         app = App.get_running_app()
@@ -366,7 +373,7 @@ class HomeScreen(Screen):
 
         main_layout.add_widget(Label(
             text="Hello, Balaji", font_size=sp(38), bold=True, halign="center",
-            color=(0.1, 0.4, 0.8, 1), size_hint_y=None, height=dp(50) # Blue greeting
+            color=(0.1, 0.4, 0.8, 1), size_hint_y=None, height=dp(50)
         ))
         main_layout.add_widget(Label(
             text="How can I help you today?", font_size=sp(24), bold=True,
@@ -413,7 +420,7 @@ class HomeScreen(Screen):
             app.open_chat_with_prompt(prompt)
 
 
-class ChatScreen(Screen):
+class ChatScreen(BaseWhiteScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.current_stream_bubble = None
@@ -476,14 +483,11 @@ class ChatScreen(Screen):
             return
 
         app = App.get_running_app()
-        
-        # If no active session, create one instantly before sending
         if not app.current_session_id:
             app.create_new_session(app.active_agent_name, prompt)
 
         role = app.app_config.get("role", "Host")
         
-        # SATELLITE MODE
         if role == "Client":
             target_ip = app.app_config.get("host_ip", "").strip()
             if not target_ip:
@@ -514,7 +518,6 @@ class ChatScreen(Screen):
             threading.Thread(target=send_to_host, daemon=True).start()
             return
 
-        # TABLET HOST MODE
         agent = app.agents.get(app.active_agent_name, {})
         if not agent.get("api_key", "").strip():
             self.chat_feed.add_widget(ChatBubble(text="⚠️ No API key configured in Settings.", is_user=False))
@@ -531,6 +534,51 @@ class ChatScreen(Screen):
         threading.Thread(target=app.stream_ai_response, args=(prompt, agent, self.current_stream_bubble), daemon=True).start()
 
 
+class CreateAgentScreen(BaseWhiteScreen):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.layout = BoxLayout(orientation="vertical", padding=dp(20), spacing=dp(15))
+
+        title = Label(text="Create Persona", size_hint_y=None, height=dp(36), font_size=sp(20), bold=True, halign="left", color=(0.1,0.1,0.1,1))
+        title.bind(width=lambda *x: title.setter("text_size")(title, (title.width, None)))
+        self.layout.add_widget(title)
+
+        self.name_input = RoundedInput(hint_text="Agent Name...", size_hint_y=None, height=dp(46), multiline=False, font_size=sp(14), padding=[dp(15), dp(12), dp(15), dp(12)])
+        self.layout.add_widget(self.name_input)
+
+        self.prompt_input = RoundedInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(14), padding=[dp(15), dp(15), dp(15), dp(15)])
+        self.layout.add_widget(self.prompt_input)
+
+        self.key_input = RoundedInput(hint_text="Dedicated API Key (sk-...)", size_hint_y=None, height=dp(46), multiline=False, password=True, font_size=sp(14), padding=[dp(15), dp(12), dp(15), dp(12)])
+        self.layout.add_widget(self.key_input)
+
+        btn_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
+        cancel_btn = RoundedButton(text="Cancel", bg_color=(0.9, 0.9, 0.9, 1))
+        cancel_btn.bind(on_press=lambda x: App.get_running_app().go_home())
+        btn_box.add_widget(cancel_btn)
+
+        save_btn = RoundedButton(text="Save", bg_color=(0.1, 0.8, 0.4, 1), color=(1,1,1,1), bold=True)
+        save_btn.bind(on_press=self.save_agent)
+        btn_box.add_widget(save_btn)
+
+        self.layout.add_widget(btn_box)
+        self.add_widget(self.layout)
+
+    def save_agent(self, instance):
+        name = self.name_input.text.strip()
+        prompt = self.prompt_input.text.strip()
+        key = self.key_input.text.strip()
+
+        if name:
+            app = App.get_running_app()
+            app.agents[name] = {"model": "gpt-4o-mini", "api_key": key, "system_prompt": prompt, "chips": ["Refine Instructions"]}
+            app.save_data()
+            self.name_input.text = ""
+            self.prompt_input.text = ""
+            self.key_input.text = ""
+            app.go_home()
+
+
 # --- ROOT ORCHESTRATION ---
 
 class RootLayout(FloatLayout):
@@ -539,6 +587,7 @@ class RootLayout(FloatLayout):
         self.sm = ScreenManager(transition=SlideTransition())
         self.sm.add_widget(HomeScreen(name="home"))
         self.sm.add_widget(ChatScreen(name="chat"))
+        self.sm.add_widget(CreateAgentScreen(name="create"))
         
         self.sidebar = NavigationDrawer()
         
@@ -547,11 +596,8 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # CRITICAL ANDROID FIX: Ensures the soft keyboard never hides the input bar
+        # Prevent Android keyboard from hiding the input bar
         Window.softinput_mode = 'below_target'
-        
-        # LIGHT THEME: Off-white background
-        Window.clearcolor = (0.96, 0.97, 0.98, 1)
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
