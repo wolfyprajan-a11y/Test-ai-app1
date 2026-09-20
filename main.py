@@ -105,9 +105,6 @@ def start_mesh_server():
     except Exception:
         pass
 
-
-# --- LIGHT THEME UI COMPONENTS ---
-
 class RoundedButton(Button):
     def __init__(self, bg_color=(0.9, 0.9, 0.9, 1), radius=12, **kwargs):
         super().__init__(**kwargs)
@@ -144,8 +141,6 @@ class RoundedInput(TextInput):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-
-# --- FIXED SLIDING SIDEBAR ---
 
 class NavigationDrawer(FloatLayout):
     def __init__(self, **kwargs):
@@ -345,8 +340,6 @@ class ChatBubble(BoxLayout):
         self.rect.pos = self.pos
         self.rect.size = self.size
 
-
-# --- SCREENS ---
 
 class BaseWhiteScreen(Screen):
     def __init__(self, **kwargs):
@@ -587,8 +580,6 @@ class CreateAgentScreen(BaseWhiteScreen):
             app.go_home()
 
 
-# --- ROOT ORCHESTRATION & TOOL EXECUTION ---
-
 class RootLayout(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -604,8 +595,8 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # FIX: Force Android to pan the app upward when the keyboard appears
-        Window.softinput_mode = 'pan'
+        # FIX: Tells Kivy to explicitly hook into the Android window resize event
+        Window.softinput_mode = 'resize'
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
@@ -642,7 +633,12 @@ class AIShellApp(App):
     def load_data(self):
         if self.agents_file.exists():
             try:
-                with open(self.agents_file, "r") as f: self.agents = json.load(f)
+                with open(self.agents_file, "r") as f:
+                    raw_agents = json.load(f)
+                    self.agents = {}
+                    for k, v in raw_agents.items():
+                        clean_k = re.sub(r'[^a-zA-Z0-9 &]', '', k).strip()
+                        self.agents[clean_k] = v
             except: self.agents = DEFAULT_AGENTS
         else: self.agents = DEFAULT_AGENTS
 
