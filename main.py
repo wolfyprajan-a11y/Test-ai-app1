@@ -265,7 +265,7 @@ class ChatBubble(BoxLayout):
             bg_color = (0.2, 0.2, 0.2, 1)
             sender_title = "System Run"
             sender_color = (0.9, 0.9, 0.9, 1)
-            text_color = (0.8, 0.9, 0.8, 1) # Hacker green output
+            text_color = (0.8, 0.9, 0.8, 1)
         elif is_user:
             bg_color = (0.85, 0.9, 0.98, 1)
             sender_title = "You"
@@ -295,7 +295,7 @@ class ChatBubble(BoxLayout):
         self.msg_label = Label(
             text=text, size_hint_y=None, font_size=sp(15) if not is_system else sp(12),
             color=text_color, halign="left", valign="top",
-            font_name="RobotoMono-Regular" if is_system else "Roboto" # Try monospace if available
+            font_name="RobotoMono-Regular" if is_system else "Roboto"
         )
         self.msg_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
         self.msg_label.bind(texture_size=lambda *x: self._adjust_height())
@@ -604,7 +604,8 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        Window.softinput_mode = 'below_target'
+        # FIX: Force Android to pan the app upward when the keyboard appears
+        Window.softinput_mode = 'pan'
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
@@ -709,7 +710,6 @@ class AIShellApp(App):
     def stream_ai_response(self, agent, bubble_widget):
         headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
         
-        # INJECT THE TOOL CAPABILITY TO ALL AGENTS
         system_base = agent.get("system_prompt", "")
         tool_instruction = (
             "\n\n[SYSTEM CAPABILITY: LOCAL CODE EXECUTION]\n"
@@ -723,7 +723,6 @@ class AIShellApp(App):
         if self.current_session_id and self.current_session_id in self.sessions:
             history = self.sessions[self.current_session_id]["messages"][-8:]
             for item in history: 
-                # If it's a system execution output, we trick the API by feeding it back as a user observation
                 role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
                 messages.append({"role": role, "content": item["text"]})
 
@@ -754,8 +753,6 @@ class AIShellApp(App):
             self.record_message(full_text, is_user=False)
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
             
-            # --- THE REACT LOOP INTERCEPTOR ---
-            # If the AI generated code, run it!
             match = re.search(r"<execute_python>(.*?)</execute_python>", full_text, re.DOTALL)
             if match:
                 code = match.group(1).strip()
@@ -770,7 +767,6 @@ class AIShellApp(App):
                     except Exception as e:
                         result = f"[Execution Error]:\n{traceback.format_exc()}"
                     
-                    # Record the result as a dark system bubble
                     sys_msg = f"Tool Output:\n{result}"
                     self.record_message(sys_msg, is_user=False, is_system=True)
                     
@@ -778,7 +774,6 @@ class AIShellApp(App):
                         sys_bubble = ChatBubble(text=sys_msg, is_user=False, is_system=True)
                         chat_screen.chat_feed.add_widget(sys_bubble)
                         
-                        # Trigger the AI again so it can read the result and answer
                         new_ai_bubble = ChatBubble(text="", is_user=False)
                         chat_screen.chat_feed.add_widget(new_ai_bubble)
                         Clock.schedule_once(lambda dt: chat_screen.scroll_to_bottom(), 0.05)
