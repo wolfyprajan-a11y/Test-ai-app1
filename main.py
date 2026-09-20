@@ -32,26 +32,27 @@ from kivy.animation import Animation
 
 API_URL = "https://api.openai.com/v1/chat/completions"
 
+# Cleaned Agent Names (Removed Android-incompatible symbols)
 DEFAULT_AGENTS = {
-    "✦ Game Architect": {
+    "Game Architect": {
         "model": "gpt-4o-mini",
         "api_key": "",
         "system_prompt": "You are a game architect. Output clean, modular code.",
         "chips": ["Balance Waves", "Procedural Logic"]
     },
-    "▶ Video Director": {
+    "Video Director": {
         "model": "gpt-4o-mini",
         "api_key": "",
         "system_prompt": "You are a video director. Output shot lists and pacing notes.",
         "chips": ["Shot List", "Storyboard"]
     },
-    "⬢ Minecraft Modder": {
+    "Minecraft Modder": {
         "model": "gpt-4o-mini",
         "api_key": "",
         "system_prompt": "You are a Minecraft modder. Write custom loot tables.",
         "chips": ["Resolve Forge Conflict", "Recipe Script"]
     },
-    "★ Photo & Visuals": {
+    "Photo & Visuals": {
         "model": "gpt-4o-mini",
         "api_key": "",
         "system_prompt": "You are a master visual prompt engineer.",
@@ -129,6 +130,7 @@ class RoundedInput(TextInput):
         self.background_active = ''
         self.background_color = (0, 0, 0, 0)
         self.foreground_color = (0.1, 0.1, 0.1, 1)
+        self.hint_text_color = (0.5, 0.5, 0.5, 1) # Fixed placeholder visibility
         self.cursor_color = (0.1, 0.4, 0.8, 1)
         self.write_tab = False
         with self.canvas.before:
@@ -148,28 +150,26 @@ class NavigationDrawer(FloatLayout):
         super().__init__(**kwargs)
         self.size_hint = (1, 1)
         self.is_open = False
-        self.disabled = True
-        self.opacity = 0
         
         self.panel_width = dp(280)
         
-        self.overlay = Button(background_normal='', background_color=(0, 0, 0, 0), size_hint=(1, 1))
+        # FIX: Move overlay offscreen (pos_hint x: 1) so it doesn't block touches when closed
+        self.overlay = Button(background_normal='', background_color=(0, 0, 0, 0), size_hint=(1, 1), pos_hint={'x': 1})
         self.overlay.bind(on_press=lambda x: self.close())
         self.add_widget(self.overlay)
         
-        # Explicit coordinates instead of X/Y binds for robust Android animations
         self.panel = BoxLayout(orientation='vertical', size_hint=(None, 1), width=self.panel_width)
-        self.panel.pos = (-self.panel_width, 0)
+        self.panel.x = -self.panel_width
         
         with self.panel.canvas.before:
-            Color(1, 1, 1, 1) # White sidebar
+            Color(1, 1, 1, 1)
             self.panel_bg = RoundedRectangle(pos=self.panel.pos, size=self.panel.size)
         self.panel.bind(pos=self._update_bg, size=self._update_bg)
 
         self.panel.add_widget(Widget(size_hint_y=None, height=dp(20)))
         
         new_chat_btn = RoundedButton(
-            text="+  New chat", size_hint=(None, None), width=self.panel_width - dp(32),
+            text="+ New chat", size_hint=(None, None), width=self.panel_width - dp(32),
             height=dp(45), pos_hint={'center_x': 0.5}, bg_color=(0.92, 0.93, 0.95, 1), bold=True
         )
         new_chat_btn.bind(on_press=lambda x: (self.close(), App.get_running_app().go_home()))
@@ -189,7 +189,7 @@ class NavigationDrawer(FloatLayout):
         self.panel.add_widget(scroll)
         
         settings_btn = Button(
-            text="⚙  Settings", size_hint_y=None, height=dp(50), background_normal='',
+            text="Settings", size_hint_y=None, height=dp(50), background_normal='',
             background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(40), None),
             color=(0.2, 0.2, 0.2, 1)
         )
@@ -205,7 +205,7 @@ class NavigationDrawer(FloatLayout):
 
     def _reposition_panel(self, *args):
         if not self.is_open:
-            self.panel.pos = (-self.panel_width, 0)
+            self.panel.x = -self.panel_width
 
     def refresh_recent(self):
         self.recent_list.clear_widgets()
@@ -215,7 +215,7 @@ class NavigationDrawer(FloatLayout):
         for session_id, session_data in sorted_sessions:
             title = session_data.get("title", "New Chat")
             btn = Button(
-                text=f"  💬 {title}", size_hint_y=None, height=dp(45), background_normal='',
+                text=f"  > {title}", size_hint_y=None, height=dp(45), background_normal='',
                 background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(20), None),
                 color=(0.2, 0.2, 0.2, 1)
             )
@@ -227,28 +227,23 @@ class NavigationDrawer(FloatLayout):
         self.close()
 
     def toggle(self, *args):
-        if self.is_open:
-            self.close()
-        else:
-            self.open()
+        if self.is_open: self.close()
+        else: self.open()
 
     def open(self, *args):
         self.refresh_recent()
-        self.disabled = False
-        self.opacity = 1
-        # Use raw pos coordinates for robust animation
-        anim = Animation(pos=(0, 0), d=0.25, t='out_quad')
+        self.overlay.pos_hint = {'x': 0} # Bring overlay on screen
+        anim = Animation(x=0, d=0.25, t='out_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0.4), d=0.25)
         anim.start(self.panel)
         anim_overlay.start(self.overlay)
         self.is_open = True
 
     def close(self, *args):
-        anim = Animation(pos=(-self.panel_width, 0), d=0.2, t='in_quad')
+        anim = Animation(x=-self.panel_width, d=0.2, t='in_quad')
         anim_overlay = Animation(background_color=(0, 0, 0, 0), d=0.2)
         def _on_finish(*a):
-            self.disabled = True
-            self.opacity = 0
+            self.overlay.pos_hint = {'x': 1} # Hide overlay off screen
             self.is_open = False
         anim.bind(on_complete=_on_finish)
         anim.start(self.panel)
@@ -277,7 +272,7 @@ class ChatBubble(BoxLayout):
 
         if not is_user:
             self.title_lbl = Label(
-                text=f"✦ {sender_title}", size_hint_y=None, height=dp(18),
+                text=sender_title, size_hint_y=None, height=dp(18),
                 font_size=sp(12), bold=True, color=sender_color, halign="left"
             )
             self.title_lbl.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
@@ -318,7 +313,7 @@ class ChatBubble(BoxLayout):
         if urls:
             first_url = urls[0]
             cloud_btn = RoundedButton(
-                text="🌐 Open Link", size_hint_x=None, width=dp(120),
+                text="Open Link", size_hint_x=None, width=dp(120),
                 bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), font_size=sp(11), bold=True
             )
             cloud_btn.bind(on_press=lambda inst, u=first_url: webbrowser.open(u))
@@ -338,10 +333,9 @@ class ChatBubble(BoxLayout):
         self.rect.size = self.size
 
 
-# --- SCREENS (EXPLICIT WHITE BACKGROUNDS) ---
+# --- SCREENS ---
 
 class BaseWhiteScreen(Screen):
-    """Guarantees a white background on Android regardless of Window settings"""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         with self.canvas.before:
@@ -361,8 +355,8 @@ class HomeScreen(BaseWhiteScreen):
 
         top_bar = BoxLayout(size_hint_y=None, height=dp(40))
         hamburger = Button(
-            text="≡", size_hint_x=None, width=dp(50), background_normal='',
-            background_color=(0, 0, 0, 0), font_size=sp(28), color=(0.2, 0.2, 0.2, 1)
+            text="Menu", size_hint_x=None, width=dp(60), background_normal='',
+            background_color=(0, 0, 0, 0), font_size=sp(16), bold=True, color=(0.4, 0.4, 0.4, 1)
         )
         hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
         
@@ -400,8 +394,8 @@ class HomeScreen(BaseWhiteScreen):
         self.prompt_input.bind(on_text_validate=self.send_from_home)
         
         send_btn = RoundedButton(
-            text="➤", bg_color=(0.9, 0.9, 0.9, 1), color=(0.2, 0.2, 0.2, 1),
-            size_hint_x=None, width=dp(55), radius=27, bold=True, font_size=sp(18)
+            text="Send", bg_color=(0.9, 0.9, 0.9, 1), color=(0.2, 0.2, 0.2, 1),
+            size_hint_x=None, width=dp(70), radius=27, bold=True, font_size=sp(14)
         )
         send_btn.bind(on_press=self.send_from_home)
         
@@ -428,8 +422,8 @@ class ChatScreen(BaseWhiteScreen):
 
         top_bar = BoxLayout(size_hint_y=None, height=dp(46), spacing=dp(8))
         hamburger = Button(
-            text="≡", size_hint_x=None, width=dp(50), background_normal='',
-            background_color=(0, 0, 0, 0), font_size=sp(28), color=(0.2, 0.2, 0.2, 1)
+            text="Menu", size_hint_x=None, width=dp(60), background_normal='',
+            background_color=(0, 0, 0, 0), font_size=sp(16), bold=True, color=(0.4, 0.4, 0.4, 1)
         )
         hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
         top_bar.add_widget(hamburger)
@@ -452,9 +446,9 @@ class ChatScreen(BaseWhiteScreen):
         bottom_bar.add_widget(self.prompt_input)
 
         self.send_btn = RoundedButton(
-            text="➤", size_hint_x=None, width=dp(55), radius=27,
+            text="Send", size_hint_x=None, width=dp(70), radius=27,
             bg_color=(0.9, 0.9, 0.9, 1), color=(0.2, 0.2, 0.2, 1),
-            font_size=sp(18), bold=True
+            font_size=sp(14), bold=True
         )
         self.send_btn.bind(on_press=self.send_prompt)
         bottom_bar.add_widget(self.send_btn)
@@ -491,7 +485,7 @@ class ChatScreen(BaseWhiteScreen):
         if role == "Client":
             target_ip = app.app_config.get("host_ip", "").strip()
             if not target_ip:
-                self.chat_feed.add_widget(ChatBubble(text="⚠️ No Tablet IP configured in Settings.", is_user=False))
+                self.chat_feed.add_widget(ChatBubble(text="No Tablet IP configured in Settings.", is_user=False))
                 return
             
             self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -508,9 +502,9 @@ class ChatScreen(BaseWhiteScreen):
                     ip_clean = target_ip.replace("http://", "").replace("https://", "").strip()
                     res = requests.post(f"http://{ip_clean}:5000", json={"prompt": prompt, "device": "phone"}, timeout=5)
                     res.raise_for_status()
-                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk("✓ Handed off to Tablet Brain."))
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk("Handed off to Tablet Brain."))
                 except Exception as e:
-                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk(f"❌ Mesh Error: {str(e)}"))
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk(f"Error: {str(e)}"))
                 finally:
                     Clock.schedule_once(lambda dt: self.current_stream_bubble.finalize_stream())
                     Clock.schedule_once(lambda dt: setattr(self.send_btn, "disabled", False))
@@ -520,7 +514,7 @@ class ChatScreen(BaseWhiteScreen):
 
         agent = app.agents.get(app.active_agent_name, {})
         if not agent.get("api_key", "").strip():
-            self.chat_feed.add_widget(ChatBubble(text="⚠️ No API key configured in Settings.", is_user=False))
+            self.chat_feed.add_widget(ChatBubble(text="No API key configured in Settings.", is_user=False))
             return
 
         self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -596,7 +590,6 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # Prevent Android keyboard from hiding the input bar
         Window.softinput_mode = 'below_target'
 
         self.config_dir = Path(self.user_data_dir)
@@ -629,9 +622,15 @@ class AIShellApp(App):
         return False
 
     def load_data(self):
+        # Strips out any old incompatible symbols from saved configurations
         if self.agents_file.exists():
             try:
-                with open(self.agents_file, "r") as f: self.agents = json.load(f)
+                with open(self.agents_file, "r") as f:
+                    raw_agents = json.load(f)
+                    self.agents = {}
+                    for k, v in raw_agents.items():
+                        clean_k = re.sub(r'[^a-zA-Z0-9 &]', '', k).strip()
+                        self.agents[clean_k] = v
             except: self.agents = DEFAULT_AGENTS
         else: self.agents = DEFAULT_AGENTS
 
@@ -731,7 +730,7 @@ class AIShellApp(App):
             self.record_message("".join(accumulated), is_user=False)
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
         except Exception as e:
-            Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"❌ Error: {str(e)}"))
+            Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"Error: {str(e)}"))
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
         finally:
             Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
