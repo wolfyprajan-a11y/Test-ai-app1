@@ -125,6 +125,8 @@ class RoundedButton(Button):
 
 class RoundedInput(TextInput):
     def __init__(self, **kwargs):
+        # FIX 1: Forces the Android keyboard to show a "Send/Done" button instead of a carriage return 🎯
+        kwargs['multiline'] = False 
         super().__init__(**kwargs)
         self.background_normal = ''
         self.background_active = ''
@@ -184,14 +186,6 @@ class NavigationDrawer(FloatLayout):
         scroll = ScrollView(size_hint=(1, 1))
         scroll.add_widget(self.recent_list)
         self.panel.add_widget(scroll)
-        
-        settings_btn = Button(
-            text="Settings & API Key", size_hint_y=None, height=dp(50), background_normal='',
-            background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(40), None),
-            color=(0.1, 0.4, 0.8, 1), bold=True
-        )
-        settings_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
-        self.panel.add_widget(settings_btn)
 
         self.add_widget(self.panel)
         self.bind(size=self._reposition_panel)
@@ -288,10 +282,10 @@ class ChatBubble(BoxLayout):
 
         self.actions_box = BoxLayout(size_hint_y=None, height=0, spacing=dp(8))
 
+        # FIX 2: Removed custom font_name to prevent the Android hard crash! 🛑
         self.msg_label = Label(
-            text=text, size_hint_y=None, font_size=sp(15) if not is_system else sp(12),
-            color=text_color, halign="left", valign="top",
-            font_name="RobotoMono-Regular" if is_system else "Roboto"
+            text=text, size_hint_y=None, font_size=sp(15) if not is_system else sp(13),
+            color=text_color, halign="left", valign="top"
         )
         self.msg_label.bind(width=lambda inst, val: setattr(inst, 'text_size', (val, None)))
         self.msg_label.bind(texture_size=lambda *x: self._adjust_height())
@@ -370,7 +364,6 @@ class HomeScreen(BaseWhiteScreen):
         
         top_bar.add_widget(Label(text="Gemini", font_size=sp(18), bold=True, halign="left", color=(0.2, 0.2, 0.2, 1)))
 
-        # THE NEW API KEY BUTTON (Directly on the home screen)
         api_btn = RoundedButton(
             text="API Key", size_hint_x=None, width=dp(80), 
             bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
@@ -448,7 +441,6 @@ class ChatScreen(BaseWhiteScreen):
         self.title_label.bind(width=lambda *x: self.title_label.setter("text_size")(self.title_label, (self.title_label.width, None)))
         top_bar.add_widget(self.title_label)
 
-        # THE NEW API KEY BUTTON (Directly on the chat screen)
         api_btn = RoundedButton(
             text="API Key", size_hint_x=None, width=dp(80), 
             bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
@@ -491,7 +483,7 @@ class ChatScreen(BaseWhiteScreen):
                 is_sys = item.get("is_system", False)
                 self.chat_feed.add_widget(ChatBubble(text=item["text"], is_user=item["is_user"], is_system=is_sys))
         else:
-            self.chat_feed.add_widget(ChatBubble(text=f"Connected to {app.active_agent_name}.", is_user=False))
+            self.chat_feed.add_widget(ChatBubble(text=f"Connected to {app.active_agent_name}. 🚀", is_user=False))
 
     def scroll_to_bottom(self):
         self.chat_scroll.scroll_y = 0
@@ -527,9 +519,9 @@ class ChatScreen(BaseWhiteScreen):
                     ip_clean = target_ip.replace("http://", "").replace("https://", "").strip()
                     res = requests.post(f"http://{ip_clean}:5000", json={"prompt": prompt, "device": "phone"}, timeout=5)
                     res.raise_for_status()
-                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk("Handed off to Tablet Brain."))
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk("Handed off to Tablet Brain. 🧠"))
                 except Exception as e:
-                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk(f"Error: {str(e)}"))
+                    Clock.schedule_once(lambda dt: self.current_stream_bubble.append_chunk(f"Error: {str(e)} 🛑"))
                 finally:
                     Clock.schedule_once(lambda dt: self.current_stream_bubble.finalize_stream())
                     Clock.schedule_once(lambda dt: setattr(self.send_btn, "disabled", False))
@@ -539,7 +531,7 @@ class ChatScreen(BaseWhiteScreen):
 
         agent = app.agents.get(app.active_agent_name, {})
         if not agent.get("api_key", "").strip():
-            self.chat_feed.add_widget(ChatBubble(text="No API key configured in Settings.", is_user=False))
+            self.chat_feed.add_widget(ChatBubble(text="No API key configured in Settings. 🔑", is_user=False))
             return
 
         self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -613,7 +605,8 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        Window.softinput_mode = 'resize'
+        # FIX 3: Pan slides the entire screen up seamlessly over the keyboard 📱⬆️
+        Window.softinput_mode = 'pan'
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
@@ -721,29 +714,30 @@ class AIShellApp(App):
             self.save_data()
 
     def stream_ai_response(self, agent, bubble_widget):
-        headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
-        
-        system_base = agent.get("system_prompt", "")
-        tool_instruction = (
-            "\n\n[SYSTEM CAPABILITY: LOCAL CODE EXECUTION]\n"
-            "You have access to a live Python environment on the user's Android device. "
-            "To solve math, analyze data, or read/write files, write Python code wrapped EXACTLY in <execute_python> and </execute_python> tags.\n"
-            "The app will automatically run your code and feed the console stdout/stderr back to you as a System message. You can read/write to the 'app_dir' variable which holds the safe storage path."
-        )
-        
-        messages = [{"role": "system", "content": system_base + tool_instruction}]
-        
-        if self.current_session_id and self.current_session_id in self.sessions:
-            history = self.sessions[self.current_session_id]["messages"][-8:]
-            for item in history: 
-                role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
-                messages.append({"role": role, "content": item["text"]})
-
-        payload = {"model": agent.get("model", "gpt-4o-mini"), "messages": messages, "temperature": 0.7, "stream": True}
-        accumulated = []
-        chat_screen = self.root_layout.sm.get_screen("chat")
-
+        # FIX 4: Safety net to prevent full app crashes if the API throws a strange error 🪂
         try:
+            headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
+            
+            system_base = agent.get("system_prompt", "")
+            tool_instruction = (
+                "\n\n[SYSTEM CAPABILITY: LOCAL CODE EXECUTION]\n"
+                "You have access to a live Python environment on the user's Android device. "
+                "To solve math, analyze data, or read/write files, write Python code wrapped EXACTLY in <execute_python> and </execute_python> tags.\n"
+                "The app will automatically run your code and feed the console stdout/stderr back to you as a System message. You can read/write to the 'app_dir' variable which holds the safe storage path."
+            )
+            
+            messages = [{"role": "system", "content": system_base + tool_instruction}]
+            
+            if self.current_session_id and self.current_session_id in self.sessions:
+                history = self.sessions[self.current_session_id]["messages"][-8:]
+                for item in history: 
+                    role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
+                    messages.append({"role": role, "content": item["text"]})
+
+            payload = {"model": agent.get("model", "gpt-4o-mini"), "messages": messages, "temperature": 0.7, "stream": True}
+            accumulated = []
+            chat_screen = self.root_layout.sm.get_screen("chat")
+
             res = requests.post(API_URL, headers=headers, json=payload, timeout=60, stream=True)
             res.raise_for_status()
 
@@ -799,7 +793,9 @@ class AIShellApp(App):
                 Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
                 
         except Exception as e:
-            Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"Error: {str(e)}"))
+            # Replaces the hard crash with a friendly UI error message! 🛑
+            err_msg = f"Oops! Connection Error: {str(e)}"
+            Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"\n\n{err_msg}"))
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
             Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
 
@@ -809,8 +805,6 @@ class AIShellApp(App):
             
         current_agent = self.agents.get(self.active_agent_name, {})
         box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
-        
-        box.add_widget(Label(text="Settings & API Key", size_hint_y=None, height=dp(30), font_size=sp(18), bold=True, color=(0.1, 0.1, 0.1, 1)))
         
         box.add_widget(Label(text="Cloud API Key", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         key_input = RoundedInput(
@@ -850,7 +844,7 @@ class AIShellApp(App):
         save_btn = RoundedButton(text="Save Settings", size_hint_y=None, height=dp(46), bg_color=(0.1, 0.8, 0.4, 1), color=(1,1,1,1), bold=True)
         box.add_widget(save_btn)
 
-        popup = Popup(title="", separator_height=0, content=box, size_hint=(0.9, 0.8), background_color=(1,1,1,1))
+        popup = Popup(title="Settings", content=box, size_hint=(0.9, 0.8), background_color=(1,1,1,1), title_color=(0.1,0.1,0.1,1))
         state = {"role": current_role}
         
         def set_host(inst):
