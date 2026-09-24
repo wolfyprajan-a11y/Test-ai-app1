@@ -105,6 +105,7 @@ def start_mesh_server():
     except Exception:
         pass
 
+
 class RoundedButton(Button):
     def __init__(self, bg_color=(0.9, 0.9, 0.9, 1), radius=12, **kwargs):
         super().__init__(**kwargs)
@@ -185,9 +186,9 @@ class NavigationDrawer(FloatLayout):
         self.panel.add_widget(scroll)
         
         settings_btn = Button(
-            text="Settings", size_hint_y=None, height=dp(50), background_normal='',
+            text="Settings & API Key", size_hint_y=None, height=dp(50), background_normal='',
             background_color=(0, 0, 0, 0), halign='left', text_size=(self.panel_width - dp(40), None),
-            color=(0.2, 0.2, 0.2, 1)
+            color=(0.1, 0.4, 0.8, 1), bold=True
         )
         settings_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
         self.panel.add_widget(settings_btn)
@@ -365,9 +366,18 @@ class HomeScreen(BaseWhiteScreen):
             background_color=(0, 0, 0, 0), font_size=sp(16), bold=True, color=(0.4, 0.4, 0.4, 1)
         )
         hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
-        
         top_bar.add_widget(hamburger)
+        
         top_bar.add_widget(Label(text="Gemini", font_size=sp(18), bold=True, halign="left", color=(0.2, 0.2, 0.2, 1)))
+
+        # THE NEW API KEY BUTTON (Directly on the home screen)
+        api_btn = RoundedButton(
+            text="API Key", size_hint_x=None, width=dp(80), 
+            bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
+        )
+        api_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
+        top_bar.add_widget(api_btn)
+
         main_layout.add_widget(top_bar)
         main_layout.add_widget(Widget(size_hint_y=None, height=dp(30)))
 
@@ -437,6 +447,14 @@ class ChatScreen(BaseWhiteScreen):
         self.title_label = Label(text="Chat", bold=True, font_size=sp(16), halign="left", color=(0.2, 0.2, 0.2, 1))
         self.title_label.bind(width=lambda *x: self.title_label.setter("text_size")(self.title_label, (self.title_label.width, None)))
         top_bar.add_widget(self.title_label)
+
+        # THE NEW API KEY BUTTON (Directly on the chat screen)
+        api_btn = RoundedButton(
+            text="API Key", size_hint_x=None, width=dp(80), 
+            bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
+        )
+        api_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
+        top_bar.add_widget(api_btn)
 
         self.layout.add_widget(top_bar)
 
@@ -595,7 +613,6 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # FIX: Tells Kivy to explicitly hook into the Android window resize event
         Window.softinput_mode = 'resize'
 
         self.config_dir = Path(self.user_data_dir)
@@ -793,6 +810,8 @@ class AIShellApp(App):
         current_agent = self.agents.get(self.active_agent_name, {})
         box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
         
+        box.add_widget(Label(text="Settings & API Key", size_hint_y=None, height=dp(30), font_size=sp(18), bold=True, color=(0.1, 0.1, 0.1, 1)))
+        
         box.add_widget(Label(text="Cloud API Key", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         key_input = RoundedInput(
             text=current_agent.get("api_key", ""), hint_text="sk-...", multiline=False,
@@ -831,7 +850,7 @@ class AIShellApp(App):
         save_btn = RoundedButton(text="Save Settings", size_hint_y=None, height=dp(46), bg_color=(0.1, 0.8, 0.4, 1), color=(1,1,1,1), bold=True)
         box.add_widget(save_btn)
 
-        popup = Popup(title="Settings", content=box, size_hint=(0.9, 0.8), background_color=(1,1,1,1), title_color=(0.1,0.1,0.1,1))
+        popup = Popup(title="", separator_height=0, content=box, size_hint=(0.9, 0.8), background_color=(1,1,1,1))
         state = {"role": current_role}
         
         def set_host(inst):
