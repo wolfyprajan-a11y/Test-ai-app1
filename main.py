@@ -33,30 +33,32 @@ from kivy.metrics import dp, sp
 from kivy.graphics import Color, RoundedRectangle, Rectangle
 from kivy.animation import Animation
 
-API_URL = "https://api.openai.com/v1/chat/completions"
-
 DEFAULT_AGENTS = {
     "Game Architect": {
-        "model": "gpt-4o-mini",
-        "api_key": "",
+        "provider": "Gemini",
+        "openai_key": "",
+        "gemini_key": "",
         "system_prompt": "You are a game architect. Output clean, modular code.",
         "chips": ["Balance Waves", "Procedural Logic"]
     },
     "Video Director": {
-        "model": "gpt-4o-mini",
-        "api_key": "",
+        "provider": "Gemini",
+        "openai_key": "",
+        "gemini_key": "",
         "system_prompt": "You are a video director. Output shot lists and pacing notes.",
         "chips": ["Shot List", "Storyboard"]
     },
     "Minecraft Modder": {
-        "model": "gpt-4o-mini",
-        "api_key": "",
+        "provider": "Gemini",
+        "openai_key": "",
+        "gemini_key": "",
         "system_prompt": "You are a Minecraft modder. Write custom loot tables.",
         "chips": ["Resolve Forge Conflict", "Recipe Script"]
     },
     "Code Interpreter": {
-        "model": "gpt-4o-mini",
-        "api_key": "",
+        "provider": "Gemini",
+        "openai_key": "",
+        "gemini_key": "",
         "system_prompt": "You are an advanced Python execution agent. When asked to solve a problem, always write and execute Python code to find the exact answer instead of guessing.",
         "chips": ["Calculate Pi to 50 digits", "List files in my app directory"]
     }
@@ -125,7 +127,6 @@ class RoundedButton(Button):
 
 class RoundedInput(TextInput):
     def __init__(self, **kwargs):
-        # FIX 1: Forces the Android keyboard to show a "Send/Done" button instead of a carriage return 🎯
         kwargs['multiline'] = False 
         super().__init__(**kwargs)
         self.background_normal = ''
@@ -251,6 +252,10 @@ class ChatBubble(BoxLayout):
         self.is_user = is_user
         self.raw_text = text
 
+        app = App.get_running_app()
+        current_agent = app.agents.get(app.active_agent_name, {})
+        provider_name = current_agent.get("provider", "Gemini")
+
         if is_system:
             bg_color = (0.2, 0.2, 0.2, 1)
             sender_title = "System Run"
@@ -263,8 +268,8 @@ class ChatBubble(BoxLayout):
             text_color = (0.1, 0.1, 0.1, 1)
         else:
             bg_color = (1, 1, 1, 1)
-            sender_title = "Gemini"
-            sender_color = (0.1, 0.4, 0.8, 1)
+            sender_title = provider_name
+            sender_color = (0.1, 0.4, 0.8, 1) if provider_name == "Gemini" else (0.1, 0.7, 0.4, 1)
             text_color = (0.1, 0.1, 0.1, 1)
 
         with self.canvas.before:
@@ -282,7 +287,6 @@ class ChatBubble(BoxLayout):
 
         self.actions_box = BoxLayout(size_hint_y=None, height=0, spacing=dp(8))
 
-        # FIX 2: Removed custom font_name to prevent the Android hard crash! 🛑
         self.msg_label = Label(
             text=text, size_hint_y=None, font_size=sp(15) if not is_system else sp(13),
             color=text_color, halign="left", valign="top"
@@ -362,10 +366,10 @@ class HomeScreen(BaseWhiteScreen):
         hamburger.bind(on_press=lambda x: App.get_running_app().toggle_sidebar())
         top_bar.add_widget(hamburger)
         
-        top_bar.add_widget(Label(text="Gemini", font_size=sp(18), bold=True, halign="left", color=(0.2, 0.2, 0.2, 1)))
+        top_bar.add_widget(Label(text="AI Hub", font_size=sp(18), bold=True, halign="left", color=(0.2, 0.2, 0.2, 1)))
 
         api_btn = RoundedButton(
-            text="API Key", size_hint_x=None, width=dp(80), 
+            text="API Keys", size_hint_x=None, width=dp(90), 
             bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
         )
         api_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
@@ -399,7 +403,7 @@ class HomeScreen(BaseWhiteScreen):
         main_layout.add_widget(Widget(size_hint_y=1))
 
         input_box = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        self.prompt_input = RoundedInput(hint_text="Ask Gemini...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
+        self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_from_home)
         
         send_btn = RoundedButton(
@@ -442,7 +446,7 @@ class ChatScreen(BaseWhiteScreen):
         top_bar.add_widget(self.title_label)
 
         api_btn = RoundedButton(
-            text="API Key", size_hint_x=None, width=dp(80), 
+            text="API Keys", size_hint_x=None, width=dp(90), 
             bg_color=(0.1, 0.4, 0.8, 1), color=(1, 1, 1, 1), bold=True
         )
         api_btn.bind(on_press=lambda x: App.get_running_app().open_settings_modal())
@@ -457,7 +461,7 @@ class ChatScreen(BaseWhiteScreen):
         self.layout.add_widget(self.chat_scroll)
 
         bottom_bar = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        self.prompt_input = RoundedInput(hint_text="Ask Gemini...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
+        self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(18), dp(20), dp(18)], font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_prompt)
         bottom_bar.add_widget(self.prompt_input)
 
@@ -502,7 +506,7 @@ class ChatScreen(BaseWhiteScreen):
         if role == "Client":
             target_ip = app.app_config.get("host_ip", "").strip()
             if not target_ip:
-                self.chat_feed.add_widget(ChatBubble(text="No Tablet IP configured in Settings.", is_user=False))
+                self.chat_feed.add_widget(ChatBubble(text="No Tablet IP configured in Settings. 🛑", is_user=False))
                 return
             
             self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -530,8 +534,14 @@ class ChatScreen(BaseWhiteScreen):
             return
 
         agent = app.agents.get(app.active_agent_name, {})
-        if not agent.get("api_key", "").strip():
-            self.chat_feed.add_widget(ChatBubble(text="No API key configured in Settings. 🔑", is_user=False))
+        
+        # Check if the active provider has a key
+        provider = agent.get("provider", "Gemini")
+        if provider == "Gemini" and not agent.get("gemini_key", "").strip():
+            self.chat_feed.add_widget(ChatBubble(text="No Gemini API key configured in Settings! Tap 'API Keys' to add it. 🔑", is_user=False))
+            return
+        elif provider == "OpenAI" and not agent.get("openai_key", "").strip():
+            self.chat_feed.add_widget(ChatBubble(text="No OpenAI API key configured in Settings! Tap 'API Keys' to add it. 🔑", is_user=False))
             return
 
         self.chat_feed.add_widget(ChatBubble(text=prompt, is_user=True))
@@ -560,9 +570,6 @@ class CreateAgentScreen(BaseWhiteScreen):
         self.prompt_input = RoundedInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(14), padding=[dp(15), dp(15), dp(15), dp(15)])
         self.layout.add_widget(self.prompt_input)
 
-        self.key_input = RoundedInput(hint_text="Dedicated API Key (sk-...)", size_hint_y=None, height=dp(46), multiline=False, password=True, font_size=sp(14), padding=[dp(15), dp(12), dp(15), dp(12)])
-        self.layout.add_widget(self.key_input)
-
         btn_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
         cancel_btn = RoundedButton(text="Cancel", bg_color=(0.9, 0.9, 0.9, 1))
         cancel_btn.bind(on_press=lambda x: App.get_running_app().go_home())
@@ -578,15 +585,19 @@ class CreateAgentScreen(BaseWhiteScreen):
     def save_agent(self, instance):
         name = self.name_input.text.strip()
         prompt = self.prompt_input.text.strip()
-        key = self.key_input.text.strip()
 
         if name:
             app = App.get_running_app()
-            app.agents[name] = {"model": "gpt-4o-mini", "api_key": key, "system_prompt": prompt, "chips": ["Refine Instructions"]}
+            app.agents[name] = {
+                "provider": "Gemini",
+                "openai_key": "",
+                "gemini_key": "",
+                "system_prompt": prompt, 
+                "chips": ["Refine Instructions"]
+            }
             app.save_data()
             self.name_input.text = ""
             self.prompt_input.text = ""
-            self.key_input.text = ""
             app.go_home()
 
 
@@ -605,8 +616,7 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # FIX 3: Pan slides the entire screen up seamlessly over the keyboard 📱⬆️
-        Window.softinput_mode = 'pan'
+        Window.softinput_mode = 'resize'
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
@@ -648,6 +658,12 @@ class AIShellApp(App):
                     self.agents = {}
                     for k, v in raw_agents.items():
                         clean_k = re.sub(r'[^a-zA-Z0-9 &]', '', k).strip()
+                        # Safe migration for older versions! 🛡️
+                        if "provider" not in v: v["provider"] = "Gemini"
+                        if "openai_key" not in v: 
+                            v["openai_key"] = v.get("api_key", "") if str(v.get("api_key", "")).startswith("sk-") else ""
+                        if "gemini_key" not in v: 
+                            v["gemini_key"] = v.get("api_key", "") if str(v.get("api_key", "")).startswith("AIza") else ""
                         self.agents[clean_k] = v
             except: self.agents = DEFAULT_AGENTS
         else: self.agents = DEFAULT_AGENTS
@@ -714,9 +730,21 @@ class AIShellApp(App):
             self.save_data()
 
     def stream_ai_response(self, agent, bubble_widget):
-        # FIX 4: Safety net to prevent full app crashes if the API throws a strange error 🪂
         try:
-            headers = {"Authorization": f"Bearer {agent['api_key']}", "Content-Type": "application/json"}
+            # 🌐 DYNAMIC PROVIDER ROUTING! 
+            provider = agent.get("provider", "Gemini")
+            
+            if provider == "Gemini":
+                # Uses Google's official OpenAI-compatible streaming endpoint
+                endpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+                api_key = agent.get("gemini_key", "")
+                model_name = "gemini-1.5-flash"
+            else:
+                endpoint = "https://api.openai.com/v1/chat/completions"
+                api_key = agent.get("openai_key", "")
+                model_name = "gpt-4o-mini"
+
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
             
             system_base = agent.get("system_prompt", "")
             tool_instruction = (
@@ -734,11 +762,11 @@ class AIShellApp(App):
                     role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
                     messages.append({"role": role, "content": item["text"]})
 
-            payload = {"model": agent.get("model", "gpt-4o-mini"), "messages": messages, "temperature": 0.7, "stream": True}
+            payload = {"model": model_name, "messages": messages, "temperature": 0.7, "stream": True}
             accumulated = []
             chat_screen = self.root_layout.sm.get_screen("chat")
 
-            res = requests.post(API_URL, headers=headers, json=payload, timeout=60, stream=True)
+            res = requests.post(endpoint, headers=headers, json=payload, timeout=60, stream=True)
             res.raise_for_status()
 
             for line in res.iter_lines():
@@ -770,9 +798,9 @@ class AIShellApp(App):
                             exec(code, {"app_dir": str(self.config_dir), "os": os, "sys": sys})
                         result = output.getvalue()
                         if not result:
-                            result = "[Executed successfully with no print output]"
+                            result = "[Executed successfully with no print output] ✅"
                     except Exception as e:
-                        result = f"[Execution Error]:\n{traceback.format_exc()}"
+                        result = f"[Execution Error] 🛑:\n{traceback.format_exc()}"
                     
                     sys_msg = f"Tool Output:\n{result}"
                     self.record_message(sys_msg, is_user=False, is_system=True)
@@ -793,8 +821,7 @@ class AIShellApp(App):
                 Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
                 
         except Exception as e:
-            # Replaces the hard crash with a friendly UI error message! 🛑
-            err_msg = f"Oops! Connection Error: {str(e)}"
+            err_msg = f"Oops! Connection Error: {str(e)} 🛑"
             Clock.schedule_once(lambda dt: bubble_widget.append_chunk(f"\n\n{err_msg}"))
             Clock.schedule_once(lambda dt: bubble_widget.finalize_stream())
             Clock.schedule_once(lambda dt: setattr(chat_screen.send_btn, "disabled", False))
@@ -804,32 +831,63 @@ class AIShellApp(App):
             self.root_layout.sidebar.close()
             
         current_agent = self.agents.get(self.active_agent_name, {})
-        box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12))
+        current_provider = current_agent.get("provider", "Gemini")
+        current_role = self.app_config.get("role", "Host")
         
-        box.add_widget(Label(text="Cloud API Key", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
-        key_input = RoundedInput(
-            text=current_agent.get("api_key", ""), hint_text="sk-...", multiline=False,
+        # 📜 Add ScrollView so settings don't get cut off!
+        scroll = ScrollView(size_hint=(1, 1))
+        box = BoxLayout(orientation="vertical", spacing=dp(10), padding=dp(12), size_hint_y=None)
+        box.bind(minimum_height=box.setter('height'))
+        
+        box.add_widget(Label(text=f"Settings: {self.active_agent_name}", size_hint_y=None, height=dp(30), font_size=sp(18), bold=True, color=(0.1, 0.1, 0.1, 1)))
+        
+        # --- BRAIN SWITCHER ---
+        box.add_widget(Label(text="Active AI Brain", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
+        provider_box = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
+        
+        gemini_btn = RoundedButton(
+            text="Google Gemini",
+            bg_color=(0.1, 0.4, 0.8, 1) if current_provider == "Gemini" else (0.9, 0.9, 0.9, 1),
+            color=(1,1,1,1) if current_provider == "Gemini" else (0.1,0.1,0.1,1), bold=True
+        )
+        openai_btn = RoundedButton(
+            text="OpenAI",
+            bg_color=(0.1, 0.7, 0.4, 1) if current_provider == "OpenAI" else (0.9, 0.9, 0.9, 1),
+            color=(1,1,1,1) if current_provider == "OpenAI" else (0.1,0.1,0.1,1), bold=True
+        )
+        provider_box.add_widget(gemini_btn)
+        provider_box.add_widget(openai_btn)
+        box.add_widget(provider_box)
+
+        # --- DUAL API KEYS ---
+        box.add_widget(Label(text="Gemini API Key (AIza...)", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
+        gemini_input = RoundedInput(
+            text=current_agent.get("gemini_key", ""), hint_text="AIza...", multiline=False,
             password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)]
         )
-        box.add_widget(key_input)
+        box.add_widget(gemini_input)
+        
+        box.add_widget(Label(text="OpenAI API Key (sk-...)", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
+        openai_input = RoundedInput(
+            text=current_agent.get("openai_key", ""), hint_text="sk-...", multiline=False,
+            password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10), dp(10), dp(10)]
+        )
+        box.add_widget(openai_input)
 
-        box.add_widget(Label(text="Device Role", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
+        # --- MESH ROLE ---
+        box.add_widget(Label(text="Device Mesh Role", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         role_box = BoxLayout(size_hint_y=None, height=dp(40), spacing=dp(10))
-        current_role = self.app_config.get("role", "Host")
         
         host_btn = RoundedButton(
             text="Tablet (Host)",
             bg_color=(0.1, 0.4, 0.8, 1) if current_role == "Host" else (0.9, 0.9, 0.9, 1),
-            color=(1,1,1,1) if current_role == "Host" else (0.1,0.1,0.1,1),
-            bold=True
+            color=(1,1,1,1) if current_role == "Host" else (0.1,0.1,0.1,1), bold=True
         )
         client_btn = RoundedButton(
             text="Phone (Client)",
             bg_color=(0.1, 0.4, 0.8, 1) if current_role == "Client" else (0.9, 0.9, 0.9, 1),
-            color=(1,1,1,1) if current_role == "Client" else (0.1,0.1,0.1,1),
-            bold=True
+            color=(1,1,1,1) if current_role == "Client" else (0.1,0.1,0.1,1), bold=True
         )
-        
         role_box.add_widget(host_btn)
         role_box.add_widget(client_btn)
         box.add_widget(role_box)
@@ -843,10 +901,27 @@ class AIShellApp(App):
 
         save_btn = RoundedButton(text="Save Settings", size_hint_y=None, height=dp(46), bg_color=(0.1, 0.8, 0.4, 1), color=(1,1,1,1), bold=True)
         box.add_widget(save_btn)
-
-        popup = Popup(title="Settings", content=box, size_hint=(0.9, 0.8), background_color=(1,1,1,1), title_color=(0.1,0.1,0.1,1))
-        state = {"role": current_role}
         
+        scroll.add_widget(box)
+        popup = Popup(title="", separator_height=0, content=scroll, size_hint=(0.95, 0.85), background_color=(1,1,1,1))
+        
+        state = {"role": current_role, "provider": current_provider}
+        
+        def set_gemini(inst):
+            state["provider"] = "Gemini"
+            gemini_btn.bg_color = (0.1, 0.4, 0.8, 1); gemini_btn.color = (1,1,1,1)
+            openai_btn.bg_color = (0.9, 0.9, 0.9, 1); openai_btn.color = (0.1,0.1,0.1,1)
+            gemini_btn._update_rect(); openai_btn._update_rect()
+            
+        def set_openai(inst):
+            state["provider"] = "OpenAI"
+            openai_btn.bg_color = (0.1, 0.7, 0.4, 1); openai_btn.color = (1,1,1,1)
+            gemini_btn.bg_color = (0.9, 0.9, 0.9, 1); gemini_btn.color = (0.1,0.1,0.1,1)
+            openai_btn._update_rect(); gemini_btn._update_rect()
+
+        gemini_btn.bind(on_press=set_gemini)
+        openai_btn.bind(on_press=set_openai)
+
         def set_host(inst):
             state["role"] = "Host"
             host_btn.bg_color = (0.1, 0.4, 0.8, 1); host_btn.color = (1,1,1,1)
@@ -864,7 +939,9 @@ class AIShellApp(App):
         
         def _save(inst):
             if self.active_agent_name in self.agents:
-                self.agents[self.active_agent_name]["api_key"] = key_input.text.strip()
+                self.agents[self.active_agent_name]["provider"] = state["provider"]
+                self.agents[self.active_agent_name]["gemini_key"] = gemini_input.text.strip()
+                self.agents[self.active_agent_name]["openai_key"] = openai_input.text.strip()
             self.app_config["role"] = state["role"]
             self.app_config["host_ip"] = ip_input.text.strip()
             self.save_data()
