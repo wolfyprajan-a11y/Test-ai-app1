@@ -127,12 +127,11 @@ class RoundedButton(Button):
 
 class RoundedInput(TextInput):
     def __init__(self, **kwargs):
-        # FIX 1: Inject font colors into kwargs BEFORE Kivy initializes to prevent invisible Android text! 🎯
         kwargs.setdefault('multiline', False)
         kwargs.setdefault('background_normal', '')
         kwargs.setdefault('background_active', '')
         kwargs.setdefault('background_color', (0, 0, 0, 0))
-        kwargs.setdefault('foreground_color', (0.1, 0.1, 0.1, 1)) # Explicitly forces dark text!
+        kwargs.setdefault('foreground_color', (0.1, 0.1, 0.1, 1)) 
         kwargs.setdefault('hint_text_color', (0.5, 0.5, 0.5, 1))
         kwargs.setdefault('cursor_color', (0.1, 0.4, 0.8, 1))
         kwargs.setdefault('write_tab', False)
@@ -617,7 +616,9 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        Window.softinput_mode = 'resize'
+        # THE ULTIMATE KEYBOARD FIX: Disable native modes and manually track the keyboard
+        Window.softinput_mode = ''
+        Window.bind(keyboard_height=self._on_keyboard_height)
 
         self.config_dir = Path(self.user_data_dir)
         self.agents_file = self.config_dir / "gemini_agents.json"
@@ -635,6 +636,11 @@ class AIShellApp(App):
 
         self.root_layout = RootLayout()
         return self.root_layout
+
+    def _on_keyboard_height(self, window, height):
+        # Physically move the entire app UI up by the exact pixel height of the Samsung keyboard
+        if hasattr(self, 'root_layout'):
+            self.root_layout.y = height if height > 0 else 0
 
     def toggle_sidebar(self):
         if hasattr(self, 'root_layout') and self.root_layout and hasattr(self.root_layout, 'sidebar'):
