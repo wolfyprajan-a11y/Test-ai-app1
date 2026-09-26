@@ -127,15 +127,18 @@ class RoundedButton(Button):
 
 class RoundedInput(TextInput):
     def __init__(self, **kwargs):
-        kwargs['multiline'] = False 
+        # FIX 1: Inject font colors into kwargs BEFORE Kivy initializes to prevent invisible Android text! 🎯
+        kwargs.setdefault('multiline', False)
+        kwargs.setdefault('background_normal', '')
+        kwargs.setdefault('background_active', '')
+        kwargs.setdefault('background_color', (0, 0, 0, 0))
+        kwargs.setdefault('foreground_color', (0.1, 0.1, 0.1, 1)) # Explicitly forces dark text!
+        kwargs.setdefault('hint_text_color', (0.5, 0.5, 0.5, 1))
+        kwargs.setdefault('cursor_color', (0.1, 0.4, 0.8, 1))
+        kwargs.setdefault('write_tab', False)
+        
         super().__init__(**kwargs)
-        self.background_normal = ''
-        self.background_active = ''
-        self.background_color = (0, 0, 0, 0)
-        self.foreground_color = (0.1, 0.1, 0.1, 1)
-        self.hint_text_color = (0.5, 0.5, 0.5, 1)
-        self.cursor_color = (0.1, 0.4, 0.8, 1)
-        self.write_tab = False
+        
         with self.canvas.before:
             Color(0.92, 0.93, 0.95, 1)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(25)])
@@ -403,7 +406,6 @@ class HomeScreen(BaseWhiteScreen):
         main_layout.add_widget(Widget(size_hint_y=1))
 
         input_box = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        # FIX 1: Padding corrected to precisely [horizontal, vertical] so text never hides! 🎯
         self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(16)], font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_from_home)
         
@@ -462,7 +464,6 @@ class ChatScreen(BaseWhiteScreen):
         self.layout.add_widget(self.chat_scroll)
 
         bottom_bar = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        # FIX 1 (cont): Perfect padding for the chat box so typing is fully visible 🎯
         self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(16)], font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_prompt)
         bottom_bar.add_widget(self.prompt_input)
@@ -759,8 +760,6 @@ class AIShellApp(App):
                     role = "user" if (item.get("is_user") or item.get("is_system")) else "assistant"
                     messages.append({"role": role, "content": item["text"]})
 
-            # FIX 3: The Smart Auto-Merger! 🛠️ 
-            # Prevents Gemini 400 crashes by gluing consecutive identical roles together
             merged_messages = []
             for msg in messages:
                 if merged_messages and merged_messages[-1]["role"] == msg["role"]:
