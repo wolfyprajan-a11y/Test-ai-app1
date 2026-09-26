@@ -127,25 +127,38 @@ class RoundedButton(Button):
 
 class RoundedInput(TextInput):
     def __init__(self, **kwargs):
-        kwargs.setdefault('multiline', False)
-        kwargs.setdefault('background_normal', '')
-        kwargs.setdefault('background_active', '')
-        kwargs.setdefault('background_color', (0, 0, 0, 0))
-        kwargs.setdefault('foreground_color', (0.1, 0.1, 0.1, 1)) 
-        kwargs.setdefault('hint_text_color', (0.5, 0.5, 0.5, 1))
-        kwargs.setdefault('cursor_color', (0.1, 0.4, 0.8, 1))
-        kwargs.setdefault('write_tab', False)
-        
+        self.is_multiline = kwargs.get('multiline', False)
+        # Remove any hardcoded padding so we can calculate it dynamically
+        kwargs.pop('padding', None)
         super().__init__(**kwargs)
+        
+        self.background_normal = ''
+        self.background_active = ''
+        self.background_color = (0, 0, 0, 0)
+        self.foreground_color = (0.1, 0.1, 0.1, 1) # Guaranteed dark text
+        self.hint_text_color = (0.5, 0.5, 0.5, 1)
+        self.cursor_color = (0.1, 0.4, 0.8, 1)
+        self.write_tab = False
         
         with self.canvas.before:
             Color(0.92, 0.93, 0.95, 1)
             self.rect = RoundedRectangle(pos=self.pos, size=self.size, radius=[dp(25)])
+            
         self.bind(pos=self._update_rect, size=self._update_rect)
+        self.bind(size=self._center_text)
 
     def _update_rect(self, *args):
         self.rect.pos = self.pos
         self.rect.size = self.size
+        self._center_text()
+        
+    def _center_text(self, *args):
+        # THE FIX: Auto-calculates perfectly centered text based on YOUR tablet's specific screen!
+        if not self.is_multiline:
+            padding_y = (self.height - self.line_height) / 2
+            self.padding = [dp(20), padding_y if padding_y > 0 else dp(10), dp(20), 0]
+        else:
+            self.padding = [dp(15), dp(15), dp(15), dp(15)]
 
 
 class NavigationDrawer(FloatLayout):
@@ -405,7 +418,7 @@ class HomeScreen(BaseWhiteScreen):
         main_layout.add_widget(Widget(size_hint_y=1))
 
         input_box = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(16)], font_size=sp(15))
+        self.prompt_input = RoundedInput(hint_text="Ask your AI...", multiline=False, font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_from_home)
         
         send_btn = RoundedButton(
@@ -463,7 +476,7 @@ class ChatScreen(BaseWhiteScreen):
         self.layout.add_widget(self.chat_scroll)
 
         bottom_bar = BoxLayout(size_hint_y=None, height=dp(55), spacing=dp(10))
-        self.prompt_input = RoundedInput(hint_text="Ask your AI...", padding=[dp(20), dp(16)], font_size=sp(15))
+        self.prompt_input = RoundedInput(hint_text="Ask your AI...", multiline=False, font_size=sp(15))
         self.prompt_input.bind(on_text_validate=self.send_prompt)
         bottom_bar.add_widget(self.prompt_input)
 
@@ -564,10 +577,10 @@ class CreateAgentScreen(BaseWhiteScreen):
         title.bind(width=lambda *x: title.setter("text_size")(title, (title.width, None)))
         self.layout.add_widget(title)
 
-        self.name_input = RoundedInput(hint_text="Agent Name...", size_hint_y=None, height=dp(46), multiline=False, font_size=sp(14), padding=[dp(15), dp(12)])
+        self.name_input = RoundedInput(hint_text="Agent Name...", size_hint_y=None, height=dp(46), multiline=False, font_size=sp(14))
         self.layout.add_widget(self.name_input)
 
-        self.prompt_input = RoundedInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(14), padding=[dp(15), dp(15)])
+        self.prompt_input = RoundedInput(hint_text="System Instructions...", size_hint_y=0.45, multiline=True, font_size=sp(14))
         self.layout.add_widget(self.prompt_input)
 
         btn_box = BoxLayout(size_hint_y=None, height=dp(48), spacing=dp(10))
@@ -616,7 +629,6 @@ class RootLayout(FloatLayout):
 
 class AIShellApp(App):
     def build(self):
-        # THE ULTIMATE KEYBOARD FIX: Disable native modes and manually track the keyboard
         Window.softinput_mode = ''
         Window.bind(keyboard_height=self._on_keyboard_height)
 
@@ -638,7 +650,6 @@ class AIShellApp(App):
         return self.root_layout
 
     def _on_keyboard_height(self, window, height):
-        # Physically move the entire app UI up by the exact pixel height of the Samsung keyboard
         if hasattr(self, 'root_layout'):
             self.root_layout.y = height if height > 0 else 0
 
@@ -871,14 +882,14 @@ class AIShellApp(App):
         box.add_widget(Label(text="Gemini API Key (AIza...)", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         gemini_input = RoundedInput(
             text=current_agent.get("gemini_key", ""), hint_text="AIza...", multiline=False,
-            password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10)]
+            password=True, size_hint_y=None, height=dp(40)
         )
         box.add_widget(gemini_input)
         
         box.add_widget(Label(text="OpenAI API Key (sk-...)", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         openai_input = RoundedInput(
             text=current_agent.get("openai_key", ""), hint_text="sk-...", multiline=False,
-            password=True, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10)]
+            password=True, size_hint_y=None, height=dp(40)
         )
         box.add_widget(openai_input)
 
@@ -902,7 +913,7 @@ class AIShellApp(App):
         box.add_widget(Label(text=f"Host IP Address (My IP: {get_local_ip()})", size_hint_y=None, height=dp(20), font_size=sp(12), color=(0.1, 0.1, 0.1, 1)))
         ip_input = RoundedInput(
             text=self.app_config.get("host_ip", ""), hint_text="e.g. 192.168.1.5",
-            multiline=False, size_hint_y=None, height=dp(40), padding=[dp(10), dp(10)]
+            multiline=False, size_hint_y=None, height=dp(40)
         )
         box.add_widget(ip_input)
 
